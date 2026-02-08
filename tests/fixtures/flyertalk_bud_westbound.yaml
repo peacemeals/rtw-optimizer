@@ -1,0 +1,75 @@
+# FlyerTalk: oneworld Explorer First Timer ex-Budapest (Westbound)
+# Source: flyertalk.com/forum/oneworld/2100918-oneworld-explorer-first-timer.html
+# DONE5 - Business Class, 5 continents, 16 segments (max)
+# Continents: EU_ME, S_America, N_America, SWP, Asia
+ticket:
+  type: DONE5
+  cabin: business
+  origin: BUD
+  passengers: 1
+
+segments:
+  - from: BUD
+    to: LHR
+    carrier: BA
+    type: transit
+  - from: LHR
+    to: SCL
+    carrier: BA
+    type: stopover
+  - from: SCL
+    to: MIA
+    carrier: AA
+    type: stopover
+  - from: MIA
+    to: ORD
+    carrier: AA
+    type: stopover
+  - from: ORD
+    to: ANC
+    carrier: AA
+    type: stopover
+  - from: ANC
+    to: HNL
+    carrier: AA
+    type: stopover
+  - from: HNL
+    to: SYD
+    carrier: QF
+    type: stopover
+  - from: SYD
+    to: NAN
+    carrier: QF
+    type: stopover
+  - from: NAN
+    to: SYD
+    carrier: QF
+    type: transit
+  - from: SYD
+    to: AKL
+    carrier: QF
+    type: stopover
+  - from: AKL
+    to: KUL
+    carrier: MH
+    type: stopover
+  - from: KUL
+    to: DEL
+    carrier: MH
+    type: stopover
+  - from: DEL
+    to: DOH
+    carrier: QR
+    type: transit
+  - from: DOH
+    to: AMM
+    carrier: QR
+    type: stopover
+  - from: AMM
+    to: LHR
+    carrier: RJ
+    type: transit
+  - from: LHR
+    to: BUD
+    carrier: BA
+    type: stopover

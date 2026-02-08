@@ -1,0 +1,39 @@
+# oneworld.com: Official Sample Routing ex-London (Eastbound)
+# Source: oneworld.com/news/roundtheworldwithoneworld
+# DONE4 - Business Class, 4 continents, 7 segments
+# Clean simple eastbound: EU_ME -> Asia -> SWP -> N_America -> EU_ME
+ticket:
+  type: DONE4
+  cabin: business
+  origin: LHR
+  passengers: 1
+
+segments:
+  - from: LHR
+    to: DOH
+    carrier: BA
+    type: stopover
+  - from: DOH
+    to: KUL
+    carrier: QR
+    type: stopover
+  - from: KUL
+    to: NRT
+    carrier: MH
+    type: stopover
+  - from: NRT
+    to: SYD
+    carrier: QF
+    type: stopover
+  - from: SYD
+    to: LAX
+    carrier: QF
+    type: stopover
+  - from: LAX
+    to: JFK
+    carrier: AA
+    type: stopover
+  - from: JFK
+    to: LHR
+    carrier: BA
+    type: stopover

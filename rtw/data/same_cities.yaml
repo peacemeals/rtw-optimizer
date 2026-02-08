@@ -1,0 +1,54 @@
+# Same-city airport groups for oneworld Explorer
+# Transfers between airports in the same group are NOT surface sectors
+# Rule 3015: "same city pair" applies to these groups
+
+TYO:
+  - NRT
+  - HND
+TPE:
+  - TSA
+  - TPE
+LON:
+  - LHR
+  - LGW
+  - STN
+  - LCY
+  - LTN
+NYC:
+  - JFK
+  - LGA
+  - EWR
+PAR:
+  - CDG
+  - ORY
+BUE:
+  - EZE
+  - AEP
+SEL:
+  - ICN
+  - GMP
+SHA:
+  - PVG
+  - SHA
+OSA:
+  - KIX
+  - ITM
+BJS:
+  - PEK
+  - PKX
+WAS:
+  - IAD
+  - DCA
+  - BWI
+CHI:
+  - ORD
+  - MDW
+MIL:
+  - MXP
+  - LIN
+ROM:
+  - FCO
+  - CIA
+STO:
+  - ARN
+  - BMA

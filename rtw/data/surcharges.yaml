@@ -1,0 +1,49 @@
+# Carrier-imposed surcharges (YQ/YR) reference data
+# Surcharges vary by route, date, and plating carrier
+# Values are approximate per-segment estimates in USD
+
+# Per-carrier YQ estimates (approximate USD per segment)
+carrier_yq:
+  JL: 12
+  AY: 10
+  FJ: 20
+  AA: 50       # Only charges on own marketed long-haul
+  AS: 40
+  MH: 60
+  UL: 50
+  RJ: 170
+  CX: 200
+  QR: 150      # Non-linear: flat charge on first QR segment, then incremental
+  IB: 220
+  BA: 321
+  QF: 334
+
+# Plating carrier comparison (total YQ impact on typical 16-segment DONE4)
+plating_comparison:
+  QR:
+    typical_total_yq_usd: 800
+    notes: "Cheapest plating. No RTW desk — must use travel agent."
+    flexibility: low
+  MH:
+    typical_total_yq_usd: 900
+    notes: "Second cheapest. Limited RTW experience."
+    flexibility: low
+  CX:
+    typical_total_yq_usd: 1500
+    notes: "Moderate. Good service."
+    flexibility: medium
+  AA:
+    typical_total_yq_usd: 1800
+    notes: "Best flexibility and service for mid-trip changes. AA RTW desk is gold standard."
+    flexibility: high
+  BA:
+    typical_total_yq_usd: 2500
+    notes: "Most expensive. Email-only changes, weeks of delays."
+    flexibility: low
+
+# Special rules
+special_rules:
+  aa_domestic_zero: "AA charges zero YQ on domestic US segments"
+  surface_zero: "Surface sectors incur zero YQ"
+  qr_nonlinear: "QR charges flat rate on first QR segment, then small incremental per additional QR segment"
+  uk_departure_tax: "UK has high departure taxes for premium long-haul (~GBP 250). Fly INTO UK, depart elsewhere."

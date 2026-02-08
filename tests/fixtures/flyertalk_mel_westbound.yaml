@@ -1,0 +1,62 @@
+# Karryon: 4-Continent Explorer ex-Melbourne (Westbound)
+# Source: karryon.com.au - 7 Amazing Journeys on oneworld Explorer
+# DONE4 - Business Class, 4 continents
+ticket:
+  type: DONE4
+  cabin: business
+  origin: MEL
+  passengers: 1
+
+segments:
+  - from: MEL
+    to: KUL
+    carrier: MH
+    type: stopover
+  - from: KUL
+    to: HKG
+    carrier: CX
+    type: stopover
+  - from: HKG
+    to: NRT
+    carrier: CX
+    type: stopover
+  - from: NRT
+    to: DEL
+    carrier: JL
+    type: stopover
+  - from: DEL
+    to: DOH
+    carrier: QR
+    type: transit
+  - from: DOH
+    to: LHR
+    carrier: QR
+    type: stopover
+  - from: LHR
+    to: CDG
+    carrier: BA
+    type: stopover
+  - from: CDG
+    to: JFK
+    carrier: AA
+    type: stopover
+  - from: JFK
+    to: DFW
+    carrier: AA
+    type: transit
+  - from: DFW
+    to: SFO
+    carrier: AA
+    type: stopover
+  - from: SFO
+    to: HNL
+    carrier: AA
+    type: stopover
+  - from: HNL
+    to: SYD
+    carrier: QF
+    type: transit
+  - from: SYD
+    to: MEL
+    carrier: QF
+    type: stopover

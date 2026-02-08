@@ -1,0 +1,147 @@
+# Invalid fixture: 17 segments (exceeds maximum of 16)
+# DONE4 business from LHR — too many segments
+# Route: LHR through Asia, SWP, N_America back to LHR (eastbound) with 17 segments
+
+ticket:
+  type: DONE4
+  cabin: business
+  origin: LHR
+  passengers: 1
+  departure: "2026-06-01"
+
+segments:
+  # 1 - EU_ME
+  - from: LHR
+    to: MAD
+    carrier: IB
+    date: "2026-06-01"
+    type: stopover
+    notes: "Iberia to Madrid"
+
+  # 2 - EU_ME -> Asia
+  - from: MAD
+    to: NRT
+    carrier: IB
+    date: "2026-06-04"
+    type: stopover
+    notes: "Iberia to Tokyo"
+
+  # 3 - Asia internal
+  - from: NRT
+    to: HKG
+    carrier: CX
+    date: "2026-06-08"
+    type: stopover
+    notes: "CX to Hong Kong"
+
+  # 4 - Asia internal
+  - from: HKG
+    to: BKK
+    carrier: CX
+    date: "2026-06-11"
+    type: transit
+    notes: "CX to Bangkok"
+
+  # 5 - Asia internal
+  - from: BKK
+    to: SIN
+    carrier: MH
+    date: "2026-06-12"
+    type: stopover
+    notes: "MH to Singapore"
+
+  # 6 - Asia internal
+  - from: SIN
+    to: KUL
+    carrier: MH
+    date: "2026-06-15"
+    type: transit
+    notes: "MH to Kuala Lumpur"
+
+  # 7 - Asia -> SWP
+  - from: KUL
+    to: SYD
+    carrier: MH
+    date: "2026-06-16"
+    type: stopover
+    notes: "MH to Sydney"
+
+  # 8 - SWP internal
+  - from: SYD
+    to: MEL
+    carrier: QF
+    date: "2026-06-20"
+    type: transit
+    notes: "QF domestic hop"
+
+  # 9 - SWP internal
+  - from: MEL
+    to: AKL
+    carrier: QF
+    date: "2026-06-21"
+    type: stopover
+    notes: "QF to Auckland"
+
+  # 10 - SWP internal
+  - from: AKL
+    to: NAN
+    carrier: FJ
+    date: "2026-06-25"
+    type: stopover
+    notes: "FJ to Nadi"
+
+  # 11 - SWP -> N_America (Pacific crossing)
+  - from: NAN
+    to: LAX
+    carrier: FJ
+    date: "2026-06-29"
+    type: stopover
+    notes: "FJ A350 — TC3 to TC1 Pacific crossing"
+
+  # 12 - N_America internal
+  - from: LAX
+    to: SFO
+    carrier: AA
+    date: "2026-07-03"
+    type: transit
+    notes: "AA short hop"
+
+  # 13 - N_America internal
+  - from: SFO
+    to: ORD
+    carrier: AA
+    date: "2026-07-04"
+    type: stopover
+    notes: "AA to Chicago"
+
+  # 14 - N_America internal
+  - from: ORD
+    to: MIA
+    carrier: AA
+    date: "2026-07-07"
+    type: transit
+    notes: "AA to Miami"
+
+  # 15 - N_America internal
+  - from: MIA
+    to: JFK
+    carrier: AA
+    date: "2026-07-08"
+    type: stopover
+    notes: "AA to JFK"
+
+  # 16 - N_America -> EU_ME (Atlantic crossing)
+  - from: JFK
+    to: MAD
+    carrier: IB
+    date: "2026-07-12"
+    type: transit
+    notes: "IB to Madrid — TC1 to TC2 Atlantic crossing"
+
+  # 17 - OVER THE LIMIT: this is segment 17
+  - from: MAD
+    to: LHR
+    carrier: IB
+    date: "2026-07-13"
+    type: final
+    notes: "Segment 17 — exceeds maximum of 16"

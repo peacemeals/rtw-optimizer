@@ -1,0 +1,54 @@
+# Fodor's Forum: Business Class RTW ex-Johannesburg (Westbound)
+# Source: fodors.com/community/air-travel/does-a-oneworld-explorer-ticket-make-sense
+# DONE5 - Business Class, 5 continents
+ticket:
+  type: DONE5
+  cabin: business
+  origin: JNB
+  passengers: 1
+
+segments:
+  - from: JNB
+    to: HKG
+    carrier: CX
+    type: stopover
+  - from: HKG
+    to: DEL
+    carrier: CX
+    type: stopover
+  - from: DEL
+    to: KUL
+    carrier: MH
+    type: stopover
+  - from: KUL
+    to: SIN
+    carrier: MH
+    type: transit
+  - from: SIN
+    to: NRT
+    carrier: JL
+    type: stopover
+  - from: NRT
+    to: HNL
+    carrier: JL
+    type: stopover
+  - from: HNL
+    to: LAX
+    carrier: AA
+    type: transit
+  - from: LAX
+    to: SFO
+    carrier: AA
+    type: stopover
+  - from: SFO
+    to: JFK
+    carrier: AA
+    type: stopover
+  - from: JFK
+    to: LHR
+    carrier: BA
+    type: stopover
+  - from: LHR
+    to: JNB
+    carrier: BA
+    type: stopover

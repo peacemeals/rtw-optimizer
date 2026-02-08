@@ -1,0 +1,116 @@
+# oneworld Explorer base fares by origin city (approximate USD)
+# Based on FlyerTalk data and fare filings as of 2025-2026
+# Note: Fares fluctuate with currency rates and filing changes
+
+origins:
+  CAI:
+    name: Cairo
+    currency: EGP
+    notes: "Historically cheapest. EGP devaluation advantage."
+    fares:
+      DONE3: 3500
+      DONE4: 4000
+      DONE5: 4400
+      DONE6: 5500
+      LONE3: 1800
+      LONE4: 2200
+      LONE5: 2500
+      LONE6: 3000
+
+  OSL:
+    name: Oslo
+    currency: EUR
+    notes: "Norway filing advantage. Easy positioning from London."
+    fares:
+      DONE3: 4800
+      DONE4: 5400
+      DONE5: 5800
+      DONE6: 6500
+      LONE3: 2500
+      LONE4: 3000
+      LONE5: 3400
+      LONE6: 3900
+
+  JNB:
+    name: Johannesburg
+    currency: ZAR
+    notes: "ZAR weakness. Good if Africa is on route."
+    fares:
+      DONE3: 4000
+      DONE4: 5000
+      DONE5: 5700
+      DONE6: 6662
+      LONE3: 2200
+      LONE4: 2800
+      LONE5: 3200
+      LONE6: 3700
+
+  NRT:
+    name: Tokyo Narita
+    currency: JPY
+    notes: "Higher taxes/YQ than CAI/OSL."
+    fares:
+      DONE3: 5500
+      DONE4: 6360
+      DONE5: 7260
+      DONE6: 8500
+      LONE3: 3000
+      LONE4: 3600
+      LONE5: 4200
+      LONE6: 5000
+
+  CMB:
+    name: Colombo
+    currency: LKR
+    notes: "SriLankan Airlines is oneworld. Occasionally cheap."
+    fares:
+      DONE3: 4500
+      DONE4: 5200
+      DONE5: 6000
+      DONE6: 7000
+      LONE3: 2400
+      LONE4: 2900
+      LONE5: 3400
+      LONE6: 4000
+
+  LHR:
+    name: London Heathrow
+    currency: GBP
+    notes: "High UK departure taxes on premium long-haul."
+    fares:
+      DONE3: 7000
+      DONE4: 8000
+      DONE5: 9000
+      DONE6: 10500
+      LONE3: 3500
+      LONE4: 4200
+      LONE5: 4800
+      LONE6: 5500
+
+  JFK:
+    name: New York JFK
+    currency: USD
+    notes: "Most expensive origin. Consider positioning to CAI/OSL."
+    fares:
+      DONE3: 9000
+      DONE4: 10500
+      DONE5: 12000
+      DONE6: 14099
+      LONE3: 4500
+      LONE4: 5500
+      LONE5: 6500
+      LONE6: 7500
+
+  SYD:
+    name: Sydney
+    currency: AUD
+    notes: "Ex-Japan is roughly half the price for same itinerary."
+    fares:
+      DONE3: 7500
+      DONE4: 8800
+      DONE5: 10000
+      DONE6: 12000
+      LONE3: 4000
+      LONE4: 4800
+      LONE5: 5500
+      LONE6: 6500

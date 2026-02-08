@@ -1,0 +1,69 @@
+# Invalid fixture: Hawaii backtracking (violates hawaii_alaska rule)
+# DONE4 business from LAX — flies to Hawaii, leaves, then returns
+# Route: LAX -> NRT -> SYD -> HNL -> SFO -> HNL (backtrack!) -> JFK -> LHR -> LAX
+# The return to HNL after already departing is the violation
+
+ticket:
+  type: DONE4
+  cabin: business
+  origin: LAX
+  passengers: 1
+  departure: "2026-05-01"
+
+segments:
+  - from: LAX
+    to: NRT
+    carrier: AA
+    date: "2026-05-01"
+    type: stopover
+    notes: "AA to Tokyo"
+
+  - from: NRT
+    to: SYD
+    carrier: JL
+    date: "2026-05-05"
+    type: stopover
+    notes: "JL to Sydney"
+
+  - from: SYD
+    to: HNL
+    carrier: QF
+    date: "2026-05-10"
+    type: stopover
+    notes: "QF to Honolulu — TC3 to TC1 Pacific crossing"
+
+  - from: HNL
+    to: SFO
+    carrier: AA
+    date: "2026-05-14"
+    type: transit
+    notes: "AA Hawaii to mainland"
+
+  # This is the backtracking violation — returning to Hawaii after leaving
+  - from: SFO
+    to: HNL
+    carrier: AA
+    date: "2026-05-16"
+    type: stopover
+    notes: "VIOLATION: backtracking to Hawaii after leaving"
+
+  - from: HNL
+    to: JFK
+    carrier: AA
+    date: "2026-05-20"
+    type: stopover
+    notes: "AA to JFK"
+
+  - from: JFK
+    to: LHR
+    carrier: BA
+    date: "2026-05-24"
+    type: stopover
+    notes: "BA Club World — TC1 to TC2 Atlantic crossing"
+
+  - from: LHR
+    to: LAX
+    carrier: BA
+    date: "2026-05-28"
+    type: final
+    notes: "BA back to LAX — TC2 to TC1 return"

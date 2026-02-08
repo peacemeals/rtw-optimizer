@@ -1,0 +1,230 @@
+# BA New Tier Points (NTP) earning rates
+# Effective from 1 April 2025
+# Marketing carrier determines earning method
+
+# Revenue-based carriers: 1 NTP per GBP 1 of eligible spend
+# (fare + YQ/YR, excluding taxes/airport fees)
+revenue_based:
+  carriers:
+    - BA
+    - AA
+    - IB
+
+# Distance-based carriers: NTP = distance_miles * (percentage / 100)
+# Rates by booking class
+distance_based:
+  # Tier 1: Most generous (50% in D class)
+  QR:
+    D: 50    # Business Flexible
+    J: 50
+    C: 50
+    I: 25    # Business Low
+    R: 25
+    P: 25
+    Y: 15    # Economy Flexible
+    B: 15
+    H: 15
+    M: 7     # Economy Low
+    L: 7
+    V: 7
+    K: 7
+    S: 7
+    N: 7
+    Q: 7
+    T: 4     # Economy Lowest
+    O: 4
+    W: 4
+    G: 4
+    A: 40    # First Low
+    F: 60    # First Flexible
+
+  JL:
+    D: 50
+    J: 50
+    C: 50
+    I: 25
+    R: 25
+    Y: 15
+    B: 15
+    H: 15
+    M: 7
+    L: 7
+    V: 7
+    K: 7
+    S: 7
+    N: 7
+    Q: 7
+    A: 40
+    F: 60
+
+  AY:
+    D: 50
+    J: 50
+    C: 50
+    I: 25
+    R: 25
+    Y: 15
+    B: 15
+    H: 15
+    M: 7
+    L: 7
+    V: 7
+    K: 7
+    S: 7
+    A: 40
+    F: 60
+
+  # Tier 2: 25% in D class
+  CX:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    P: 12.5
+    W: 12.5   # Premium Economy Flexible
+    R: 6      # Premium Economy Low
+    E: 6
+    Y: 7.5
+    B: 7.5
+    H: 7.5
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    Q: 2
+    S: 2
+    V: 2
+    A: 20
+    F: 30
+
+  FJ:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Z: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 7.5
+    K: 3.5
+    L: 3.5
+    M: 3.5
+    S: 3.5
+    O: 3.5
+    Q: 3.5
+    W: 3.5
+    G: 2
+    N: 2
+    T: 2
+    V: 2
+
+  RJ:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Z: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 2
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    O: 2
+    Q: 2
+    V: 2
+    W: 2
+    S: 2
+
+  QF:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 7.5
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    Q: 2
+    S: 2
+    V: 2
+    A: 20
+    F: 30
+
+  MH:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 7.5
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    Q: 2
+    S: 2
+    V: 2
+
+  AS:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 7.5
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    Q: 2
+    S: 2
+    V: 2
+
+  AT:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 2
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    Q: 2
+    S: 2
+    V: 2
+
+  UL:
+    D: 25
+    J: 25
+    C: 25
+    I: 12.5
+    Y: 7.5
+    B: 7.5
+    H: 7.5
+    K: 2
+    L: 2
+    M: 2
+    N: 2
+    Q: 2
+    S: 2
+    V: 2
+
+# BA bonus NTP (per segment, BA-marketed flights only)
+# Permanent from 25 Nov 2025
+ba_bonus:
+  euro_traveller: 75       # Short-haul economy
+  club_europe: 175         # Short-haul business
+  world_traveller: 150     # Long-haul economy
+  world_traveller_plus: 275  # Premium economy
+  club_world: 400          # Long-haul business
+  first: 550               # First class

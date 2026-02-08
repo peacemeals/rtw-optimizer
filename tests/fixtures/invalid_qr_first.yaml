@@ -1,0 +1,62 @@
+# Invalid fixture: QR as first carrier (violates qr_not_first rule)
+# DONE4 business from DOH — Qatar Airways is the first flown carrier
+# Route: DOH -> NRT -> SYD -> LAX -> JFK -> LHR -> DOH (eastbound)
+# This is a plausible RTW but starts with QR which is banned per Rule 3015 §19
+
+ticket:
+  type: DONE4
+  cabin: business
+  origin: DOH
+  passengers: 1
+  departure: "2026-04-01"
+
+segments:
+  # QR as first carrier — VIOLATION
+  - from: DOH
+    to: NRT
+    carrier: QR
+    date: "2026-04-01"
+    type: stopover
+    notes: "QR QSuite to Tokyo — violates QR not first rule"
+
+  - from: NRT
+    to: SYD
+    carrier: JL
+    date: "2026-04-05"
+    type: stopover
+    notes: "Japan Airlines to Sydney"
+
+  - from: SYD
+    to: MEL
+    carrier: QF
+    date: "2026-04-09"
+    type: transit
+    notes: "Qantas domestic hop"
+
+  - from: MEL
+    to: LAX
+    carrier: QF
+    date: "2026-04-10"
+    type: stopover
+    notes: "Qantas A380 — TC3 to TC1 Pacific crossing"
+
+  - from: LAX
+    to: JFK
+    carrier: AA
+    date: "2026-04-14"
+    type: stopover
+    notes: "AA transcontinental"
+
+  - from: JFK
+    to: LHR
+    carrier: BA
+    date: "2026-04-18"
+    type: stopover
+    notes: "BA Club World — TC1 to TC2 Atlantic crossing"
+
+  - from: LHR
+    to: DOH
+    carrier: QR
+    date: "2026-04-22"
+    type: final
+    notes: "QR back to origin"

@@ -1,0 +1,65 @@
+# Minimal valid fixture: DONE4 business from LHR
+# 7 segments covering 4 continents (EU_ME, Asia, SWP, N_America)
+# Eastbound direction, both ocean crossings, 4 stopovers, returns to LHR
+# Should pass validation with 0 violations and 0 warnings
+#
+# Route: LHR -> NRT -> SYD -> LAX -> JFK -> LHR (eastbound)
+# TC sequence: TC2 -> TC3 -> TC3 -> TC1 -> TC1 -> TC2
+# Origin continent stopovers: LHR(origin) + LHR(final) = 0 counted stopovers in EU_ME
+# (NRT=stopover in Asia, SYD=stopover in SWP, LAX=stopover in N_America, JFK=stopover in N_America)
+
+ticket:
+  type: DONE4
+  cabin: business
+  origin: LHR
+  passengers: 1
+  departure: "2026-04-01"
+
+segments:
+  # EU_ME -> Asia (TC2 -> TC3)
+  - from: LHR
+    to: NRT
+    carrier: JL
+    date: "2026-04-01"
+    type: stopover
+    notes: "JAL to Tokyo — low YQ"
+
+  # Asia -> SWP (within TC3)
+  - from: NRT
+    to: SYD
+    carrier: QF
+    date: "2026-04-05"
+    type: stopover
+    notes: "Qantas to Sydney"
+
+  # SWP internal
+  - from: SYD
+    to: MEL
+    carrier: QF
+    date: "2026-04-09"
+    type: transit
+    notes: "Qantas domestic connection"
+
+  # SWP -> N_America (TC3 -> TC1 — Pacific crossing)
+  - from: MEL
+    to: LAX
+    carrier: QF
+    date: "2026-04-10"
+    type: stopover
+    notes: "Qantas A380 — Pacific crossing"
+
+  # N_America internal
+  - from: LAX
+    to: JFK
+    carrier: AA
+    date: "2026-04-14"
+    type: stopover
+    notes: "AA transcontinental"
+
+  # N_America -> EU_ME (TC1 -> TC2 — Atlantic crossing)
+  - from: JFK
+    to: LHR
+    carrier: BA
+    date: "2026-04-18"
+    type: final
+    notes: "BA Club World — Atlantic crossing, return to origin"

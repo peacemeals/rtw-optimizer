@@ -1,0 +1,51 @@
+# Karryon: 6-Continent Explorer ex-Sydney (Westbound)
+# Source: karryon.com.au - 7 Amazing Journeys on oneworld Explorer
+# DONE6 - Business Class, 6 continents (all six)
+# Tests EU/ME-Africa intercontinental exception (DOH->NBO->LHR)
+ticket:
+  type: DONE6
+  cabin: business
+  origin: SYD
+  passengers: 1
+
+segments:
+  - from: SYD
+    to: HKG
+    carrier: CX
+    type: stopover
+  - from: HKG
+    to: DEL
+    carrier: CX
+    type: stopover
+  - from: DEL
+    to: DOH
+    carrier: QR
+    type: transit
+  - from: DOH
+    to: NBO
+    carrier: QR
+    type: stopover
+  - from: NBO
+    to: LHR
+    carrier: BA
+    type: stopover
+  - from: LHR
+    to: MAD
+    carrier: BA
+    type: stopover
+  - from: MAD
+    to: JFK
+    carrier: IB
+    type: stopover
+  - from: JFK
+    to: MIA
+    carrier: AA
+    type: stopover
+  - from: MIA
+    to: SCL
+    carrier: AA
+    type: stopover
+  - from: SCL
+    to: SYD
+    carrier: QF
+    type: stopover

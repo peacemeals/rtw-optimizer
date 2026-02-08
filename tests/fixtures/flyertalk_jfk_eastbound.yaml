@@ -1,0 +1,38 @@
+# AwardFares: Business Class RTW ex-New York (Eastbound)
+# Source: blog.awardfares.com/round-the-world-award-flights
+# DONE5 - Business Class, 5 continents (Asia, EU/ME, Africa, N.America + origin)
+ticket:
+  type: DONE5
+  cabin: business
+  origin: JFK
+  passengers: 1
+
+segments:
+  - from: JFK
+    to: NRT
+    carrier: JL
+    type: stopover
+  - from: NRT
+    to: BKK
+    carrier: JL
+    type: stopover
+  - from: BKK
+    to: DOH
+    carrier: QR
+    type: stopover
+  - from: DOH
+    to: CMN
+    carrier: QR
+    type: stopover
+  - from: CMN
+    to: MAD
+    carrier: IB
+    type: stopover
+  - from: MAD
+    to: LHR
+    carrier: BA
+    type: stopover
+  - from: LHR
+    to: JFK
+    carrier: AA
+    type: stopover

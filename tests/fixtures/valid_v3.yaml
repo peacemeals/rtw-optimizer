@@ -1,0 +1,124 @@
+ticket:
+  type: DONE4
+  cabin: business
+  origin: CAI
+  passengers: 2
+  departure: "2026-03-10"
+  plating_carrier: AA
+
+segments:
+  - from: CAI
+    to: AMM
+    carrier: RJ
+    date: "2026-03-10"
+    type: stopover
+    notes: "Royal Jordanian evening flight"
+
+  - from: AMM
+    to: DOH
+    carrier: QR
+    date: "2026-03-13"
+    type: stopover
+    notes: "Qatar Airways to Doha"
+
+  - from: DOH
+    to: NRT
+    carrier: QR
+    flight: QR806
+    date: "2026-03-15"
+    type: stopover
+    notes: "QSuite 777 — TC2 to TC3 Pacific direction"
+
+  - from: HND
+    to: TSA
+    carrier: JL
+    flight: JL99
+    date: "2026-03-22"
+    type: stopover
+    notes: "Same-city: NRT/HND = Tokyo. JL Haneda to Songshan"
+
+  - from: TPE
+    to: HKG
+    carrier: CX
+    date: "2026-03-25"
+    type: stopover
+    notes: "Same-city: TSA/TPE = Taipei. CX to Hong Kong"
+
+  - from: HKG
+    to: SIN
+    carrier: CX
+    date: "2026-03-31"
+    type: transit
+    notes: "Cathay Pacific evening departure"
+
+  - from: SIN
+    to: NAN
+    carrier: FJ
+    date: "2026-04-02"
+    type: stopover
+    notes: "Fiji Airways SIN-NAN"
+
+  - from: NAN
+    to: FUN
+    carrier: FJ
+    date: "2026-04-06"
+    type: stopover
+    notes: "ATR-72 to Tuvalu — single class, D maps to Y"
+
+  - from: FUN
+    to: NAN
+    carrier: FJ
+    date: "2026-04-10"
+    type: transit
+    notes: "Return to Nadi"
+
+  - from: NAN
+    to: SFO
+    carrier: FJ
+    date: "2026-04-15"
+    type: stopover
+    notes: "FJ A350 — TC3 to TC1 Pacific crossing"
+
+  - from: SFO
+    to: JFK
+    carrier: AA
+    date: "2026-04-18"
+    type: stopover
+    notes: "A321T Flagship Business transcontinental"
+
+  - from: JFK
+    to: MCO
+    carrier: null
+    date: null
+    type: surface
+    notes: "Surface sector — fly separately (JetBlue)"
+
+  - from: MCO
+    to: MIA
+    carrier: AA
+    date: "2026-04-27"
+    type: transit
+    notes: "Short hop, ~2h45m connection to MEX"
+
+  - from: MIA
+    to: MEX
+    carrier: AA
+    date: "2026-04-27"
+    type: stopover
+    notes: "Same-day connection from MCO"
+
+  - from: MEX
+    to: MAD
+    carrier: IB
+    flight: IB6400
+    date: "2026-05-04"
+    type: stopover
+    notes: "Iberia A350-900 — TC1 to TC2 Atlantic crossing"
+
+  - from: MAD
+    to: CAI
+    carrier: IB
+    flight: IB1903
+    date: "2026-05-07"
+    type: final
+    notes: "Verify mainline IB, not Iberia Express (I2)"

@@ -1,0 +1,163 @@
+# oneworld alliance carrier reference data
+# YQ tiers: very_low < low < medium < high < very_high
+
+AA:
+  name: American Airlines
+  alliance: oneworld
+  eligible: true
+  ntp_method: revenue
+  yq_tier: low
+  yq_estimate_per_segment: 50
+  rtw_booking_class: H   # AA uses H class for OWE business (NOT D)
+  notes: "Revenue-based NTP. Uses H class (not D) for oneworld Explorer business."
+
+BA:
+  name: British Airways
+  alliance: oneworld
+  eligible: true
+  ntp_method: revenue
+  yq_tier: very_high
+  yq_estimate_per_segment: 321
+  rtw_booking_class: D
+  notes: "Highest surcharges. Revenue-based NTP + 400 bonus per Club World segment."
+
+CX:
+  name: Cathay Pacific
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: medium
+  yq_estimate_per_segment: 200
+  rtw_booking_class: D
+  notes: "D class = 25% of distance for NTP."
+
+FJ:
+  name: Fiji Airways
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: very_low
+  yq_estimate_per_segment: 20
+  rtw_booking_class: D
+  notes: "Joined oneworld April 2025. ATR-72 routes are single class."
+
+QR:
+  name: Qatar Airways
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: medium
+  yq_estimate_per_segment: 150
+  rtw_booking_class: D
+  notes: "Cannot be first carrier. D class = 50% of distance for NTP. Non-linear YQ structure."
+
+RJ:
+  name: Royal Jordanian
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: medium
+  yq_estimate_per_segment: 170
+  rtw_booking_class: D
+  notes: "D class = 25% of distance for NTP."
+
+JL:
+  name: Japan Airlines
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: very_low
+  yq_estimate_per_segment: 12
+  rtw_booking_class: D
+  notes: "Lowest surcharges. D class = 50% of distance for NTP."
+
+IB:
+  name: Iberia
+  alliance: oneworld
+  eligible: true
+  ntp_method: revenue
+  yq_tier: high
+  yq_estimate_per_segment: 220
+  rtw_booking_class: D
+  notes: "Revenue-based NTP. Includes Iberia Express (I2) flights."
+
+AY:
+  name: Finnair
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: very_low
+  yq_estimate_per_segment: 10
+  rtw_booking_class: D
+  notes: "D class = 50% of distance for NTP. Very low surcharges."
+
+QF:
+  name: Qantas
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: very_high
+  yq_estimate_per_segment: 334
+  rtw_booking_class: D
+  notes: "D class = 25% of distance for NTP. Notoriously stingy with D-class availability."
+
+MH:
+  name: Malaysia Airlines
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: low
+  yq_estimate_per_segment: 60
+  rtw_booking_class: D
+  notes: "D class = 25% of distance for NTP."
+
+AS:
+  name: Alaska Airlines
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: low
+  yq_estimate_per_segment: 40
+  rtw_booking_class: D
+  notes: "Affiliate/partner. D class = 25% of distance for NTP. Erratic availability."
+
+AT:
+  name: Royal Air Maroc
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: medium
+  yq_estimate_per_segment: 100
+  rtw_booking_class: D
+  notes: "D class = 25% of distance for NTP."
+
+UL:
+  name: SriLankan Airlines
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: low
+  yq_estimate_per_segment: 50
+  rtw_booking_class: D
+  notes: "D class = 25% of distance for NTP."
+
+S7:
+  name: S7 Airlines
+  alliance: oneworld
+  eligible: true
+  ntp_method: distance
+  yq_tier: low
+  yq_estimate_per_segment: 40
+  rtw_booking_class: D
+  notes: "Russian carrier. Limited RTW utility due to sanctions."
+
+# Ineligible carriers (for reference)
+LA:
+  name: LATAM Airlines
+  alliance: skyteam
+  eligible: false
+  ntp_method: null
+  yq_tier: null
+  yq_estimate_per_segment: null
+  rtw_booking_class: null
+  notes: "Left oneworld 2020, joined SkyTeam. NOT eligible for oneworld Explorer."

@@ -1,0 +1,59 @@
+# FlyerTalk: First Class ex-Tokyo Haneda (Eastbound)
+# Source: flyertalk.com/forum/oneworld/2008084-oneworld-explorer-user-guide-24.html
+# AONE3 - First Class, 3 continents, surface sector JFK-PHL
+# NA at 6-segment limit, eastbound direction
+ticket:
+  type: AONE3
+  cabin: first
+  origin: HND
+  passengers: 1
+
+segments:
+  - from: HND
+    to: SFO
+    carrier: JL
+    type: stopover
+  - from: SFO
+    to: RDM
+    carrier: AA
+    type: transit
+  - from: RDM
+    to: SFO
+    carrier: AA
+    type: transit
+  - from: SFO
+    to: JFK
+    carrier: AA
+    type: stopover
+  - from: JFK
+    to: PHL
+    carrier: AA
+    type: surface
+  - from: PHL
+    to: JAX
+    carrier: AA
+    type: transit
+  - from: JAX
+    to: MIA
+    carrier: AA
+    type: stopover
+  - from: MIA
+    to: LHR
+    carrier: BA
+    type: stopover
+  - from: LHR
+    to: NCE
+    carrier: BA
+    type: stopover
+  - from: NCE
+    to: LHR
+    carrier: BA
+    type: transit
+  - from: LHR
+    to: HKG
+    carrier: CX
+    type: stopover
+  - from: HKG
+    to: HND
+    carrier: CX
+    type: stopover

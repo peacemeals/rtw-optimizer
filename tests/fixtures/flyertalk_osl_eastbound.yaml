@@ -1,0 +1,67 @@
+# FlyerTalk: Business Class ex-Oslo (Eastbound)
+# Source: flyertalk.com/forum/oneworld/2176618-ex-osl-done-4-help.html
+# DONE4 - Business Class, 4 continents, 14 segments
+# Tests intra-continent backtracking: HKG-HAN-HKG and SYD-PER-ADL-SYD
+ticket:
+  type: DONE4
+  cabin: business
+  origin: OSL
+  passengers: 1
+
+segments:
+  - from: OSL
+    to: HEL
+    carrier: AY
+    type: transit
+  - from: HEL
+    to: HKG
+    carrier: AY
+    type: stopover
+  - from: HKG
+    to: HAN
+    carrier: CX
+    type: stopover
+  - from: HAN
+    to: HKG
+    carrier: CX
+    type: transit
+  - from: HKG
+    to: SYD
+    carrier: CX
+    type: stopover
+  - from: SYD
+    to: PER
+    carrier: QF
+    type: stopover
+  - from: PER
+    to: ADL
+    carrier: QF
+    type: stopover
+  - from: ADL
+    to: SYD
+    carrier: QF
+    type: transit
+  - from: SYD
+    to: HNL
+    carrier: QF
+    type: stopover
+  - from: HNL
+    to: DFW
+    carrier: AA
+    type: stopover
+  - from: DFW
+    to: MIA
+    carrier: AA
+    type: stopover
+  - from: MIA
+    to: JFK
+    carrier: AA
+    type: stopover
+  - from: JFK
+    to: MAD
+    carrier: IB
+    type: stopover
+  - from: MAD
+    to: OSL
+    carrier: IB
+    type: stopover

@@ -1,0 +1,79 @@
+# DONE5 Eastbound Template (5 continents)
+# Adds South America via IB MEX→MAD routing
+
+ticket:
+  type: DONE5
+  cabin: business
+  origin: CAI
+  passengers: 1
+  departure: "2026-01-01"
+  plating_carrier: AA
+
+segments:
+  # EU/ME
+  - from: CAI
+    to: AMM
+    carrier: RJ
+    type: stopover
+
+  - from: AMM
+    to: DOH
+    carrier: QR
+    type: stopover
+
+  # Asia
+  - from: DOH
+    to: NRT
+    carrier: QR
+    type: stopover
+
+  - from: HND
+    to: HKG
+    carrier: CX
+    type: stopover
+
+  # SWP
+  - from: HKG
+    to: NAN
+    carrier: FJ
+    type: stopover
+
+  - from: NAN
+    to: SFO
+    carrier: FJ
+    type: stopover
+
+  # North America
+  - from: SFO
+    to: JFK
+    carrier: AA
+    type: stopover
+
+  - from: JFK
+    to: MIA
+    carrier: AA
+    type: transit
+
+  # South America touch
+  - from: MIA
+    to: SCL
+    carrier: AA
+    type: stopover
+    notes: "South America continent touch"
+
+  - from: SCL
+    to: DFW
+    carrier: AA
+    type: stopover
+
+  - from: DFW
+    to: MAD
+    carrier: IB
+    type: stopover
+    notes: "TC1→TC2 Atlantic crossing"
+
+  # Return
+  - from: MAD
+    to: CAI
+    carrier: IB
+    type: final

@@ -1,0 +1,65 @@
+# DONE4 Eastbound Template (4 continents)
+# Customize origin, dates, and specific airports
+
+ticket:
+  type: DONE4
+  cabin: business
+  origin: CAI       # Change to your origin
+  passengers: 1
+  departure: "2026-01-01"
+  plating_carrier: AA
+
+segments:
+  # EU/ME (origin continent)
+  - from: CAI
+    to: AMM
+    carrier: RJ
+    type: stopover
+
+  - from: AMM
+    to: DOH
+    carrier: QR
+    type: stopover
+
+  # Asia (TC3)
+  - from: DOH
+    to: NRT
+    carrier: QR
+    type: stopover
+    notes: "TC2→TC3 crossing"
+
+  - from: HND
+    to: HKG
+    carrier: CX
+    type: stopover
+    notes: "Same-city: NRT/HND = Tokyo"
+
+  # SWP (TC3)
+  - from: HKG
+    to: NAN
+    carrier: FJ
+    type: stopover
+
+  - from: NAN
+    to: SFO
+    carrier: FJ
+    type: stopover
+    notes: "TC3→TC1 Pacific crossing"
+
+  # North America (TC1)
+  - from: SFO
+    to: JFK
+    carrier: AA
+    type: stopover
+
+  - from: JFK
+    to: LHR
+    carrier: BA
+    type: stopover
+    notes: "TC1→TC2 Atlantic crossing"
+
+  # Return to EU/ME
+  - from: LHR
+    to: CAI
+    carrier: BA
+    type: final

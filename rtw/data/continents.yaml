@@ -1,0 +1,211 @@
+# oneworld Explorer continent definitions
+# Based on IATA Tariff Conferences and Rule 3015
+
+# Airport-to-continent overrides (edge cases that differ from country defaults)
+overrides:
+  CAI: EU_ME       # Egypt = Europe/Middle East (NOT Africa)
+  ALY: EU_ME       # Alexandria, Egypt
+  HRG: EU_ME       # Hurghada, Egypt
+  SSH: EU_ME       # Sharm El Sheikh, Egypt
+  LXR: EU_ME       # Luxor, Egypt
+  GUM: Asia        # Guam = Asia (TC3 SE Asia), NOT North America despite US territory
+  MEX: N_America   # Mexico = North America
+  CUN: N_America   # Cancun, Mexico
+  GDL: N_America   # Guadalajara, Mexico
+  HNL: N_America   # Hawaii = North America
+  OGG: N_America   # Maui, Hawaii
+  KOA: N_America   # Kona, Hawaii
+  LIH: N_America   # Kauai, Hawaii
+  IST: EU_ME       # Istanbul, Turkey
+  DOH: EU_ME       # Doha, Qatar
+  AMM: EU_ME       # Amman, Jordan
+  RUH: EU_ME       # Riyadh, Saudi Arabia
+  JED: EU_ME       # Jeddah, Saudi Arabia
+  BAH: EU_ME       # Bahrain
+  KWI: EU_ME       # Kuwait
+  MCT: EU_ME       # Muscat, Oman
+  NAN: SWP         # Nadi, Fiji = South West Pacific
+  SUV: SWP         # Suva, Fiji
+  FUN: SWP         # Funafuti, Tuvalu
+  TRW: SWP         # Tarawa, Kiribati
+  PPT: SWP         # Papeete, Tahiti
+  APW: SWP         # Apia, Samoa
+  AKL: SWP         # Auckland, New Zealand
+  WLG: SWP         # Wellington, New Zealand
+  CHC: SWP         # Christchurch, New Zealand
+  SYD: SWP         # Sydney, Australia
+  MEL: SWP         # Melbourne, Australia
+  BNE: SWP         # Brisbane, Australia
+  PER: SWP         # Perth, Australia
+  ADL: SWP         # Adelaide, Australia
+  CNS: SWP         # Cairns, Australia
+  DRW: SWP         # Darwin, Australia
+  NOU: SWP         # Noumea, New Caledonia
+  VLI: SWP         # Port Vila, Vanuatu
+  TBU: SWP         # Tongatapu, Tonga
+
+# Country-to-continent defaults
+countries:
+  # TC2 - Europe/Middle East
+  EU_ME:
+    - GB
+    - FR
+    - DE
+    - ES
+    - IT
+    - NL
+    - PT
+    - CH
+    - AT
+    - BE
+    - IE
+    - SE
+    - NO
+    - DK
+    - FI
+    - GR
+    - TR
+    - PL
+    - CZ
+    - HU
+    - RO
+    - BG
+    - HR
+    - RS
+    - IL
+    - JO
+    - QA
+    - AE
+    - SA
+    - BH
+    - KW
+    - OM
+    - EG
+    - MA
+    - TN
+    - DZ
+    - LY
+    - SD
+    - YE
+    - RU  # West of Urals
+    - AM
+    - AZ
+    - GE
+    - MD
+
+  # TC2 - Africa (Sub-Saharan)
+  Africa:
+    - ZA
+    - KE
+    - ET
+    - NG
+    - GH
+    - TZ
+    - UG
+    - RW
+    - MU
+    - SC
+    - SN
+    - CI
+    - CM
+    - MZ
+    - ZW
+    - BW
+    - NA
+    - MW
+    - ZM
+
+  # TC3 - Asia
+  Asia:
+    - JP
+    - CN
+    - HK
+    - TW
+    - KR
+    - SG
+    - MY
+    - TH
+    - VN
+    - PH
+    - ID
+    - IN
+    - LK
+    - PK
+    - BD
+    - NP
+    - MM
+    - KH
+    - LA
+    - MV
+
+  # TC3 - South West Pacific
+  SWP:
+    - AU
+    - NZ
+    - FJ
+    - PG
+    - WS
+    - TO
+    - TV
+    - VU
+    - NC
+    - SB
+    - KI
+    - PF
+
+  # TC1 - North America
+  N_America:
+    - US
+    - CA
+    - MX
+    - PA
+    - CR
+    - GT
+    - HN
+    - SV
+    - NI
+    - BZ
+    - JM
+    - CU
+    - DO
+    - HT
+    - TT
+    - BB
+    - BS
+    - BM
+
+  # TC1 - South America
+  S_America:
+    - BR
+    - AR
+    - CL
+    - CO
+    - PE
+    - EC
+    - VE
+    - BO
+    - PY
+    - UY
+    - GY
+    - SR
+
+# Tariff conference assignments
+tariff_conferences:
+  TC1:
+    - N_America
+    - S_America
+  TC2:
+    - EU_ME
+    - Africa
+  TC3:
+    - Asia
+    - SWP
+
+# Per-continent segment limits (after departing origin continent)
+segment_limits:
+  EU_ME: 4
+  Africa: 4
+  Asia: 4
+  SWP: 4
+  N_America: 6
+  S_America: 4

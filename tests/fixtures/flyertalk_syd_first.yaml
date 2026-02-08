@@ -1,0 +1,37 @@
+# FlyerTalk: First Class RTW ex-Sydney (Westbound)
+# Source: flyertalk.com/forum/trip-reports/522704
+# AONE4 - First Class, 4 continents
+ticket:
+  type: AONE4
+  cabin: first
+  origin: SYD
+  passengers: 1
+
+segments:
+  - from: SYD
+    to: HKG
+    carrier: QF
+    type: stopover
+  - from: HKG
+    to: LHR
+    carrier: CX
+    type: stopover
+  - from: LHR
+    to: CDG
+    type: surface
+  - from: CDG
+    to: JFK
+    carrier: AA
+    type: stopover
+  - from: JFK
+    to: SFO
+    carrier: AA
+    type: transit
+  - from: SFO
+    to: NRT
+    carrier: JL
+    type: stopover
+  - from: NRT
+    to: SYD
+    carrier: QF
+    type: stopover
