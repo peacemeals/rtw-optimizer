@@ -656,19 +656,26 @@ def scrape_availability(
     _setup_logging(verbose, quiet)
     try:
         itinerary = _load_itinerary(file)
-        import asyncio
         from rtw.scraper.batch import check_itinerary_availability
 
-        results = asyncio.run(check_itinerary_availability(itinerary, booking_class))
+        results = check_itinerary_availability(itinerary, booking_class)
 
         typer.echo("Availability Results:")
         for i, r in enumerate(results):
             seg = itinerary.segments[i]
             route = f"{seg.from_airport}-{seg.to_airport}"
             if r is not None:
-                avail = "AVAILABLE" if r.get("available") else "NOT AVAILABLE"
-                seats = r.get("seats", "?")
-                typer.echo(f"  {i + 1}. {route}: {avail} ({seats} seats)")
+                if hasattr(r, "available"):
+                    avail = "AVAILABLE" if r.available else "NOT AVAILABLE"
+                    seats = getattr(r, "seats", "?")
+                    display = getattr(r, "display_code", f"{seats} seats")
+                    flights = getattr(r, "flight_count", 0)
+                    extra = f" ({flights} flights)" if flights else ""
+                    typer.echo(f"  {i + 1}. {route}: {avail} — {display}{extra}")
+                else:
+                    avail = "AVAILABLE" if r.get("available") else "NOT AVAILABLE"
+                    seats = r.get("seats", "?")
+                    typer.echo(f"  {i + 1}. {route}: {avail} ({seats} seats)")
             elif seg.is_surface:
                 typer.echo(f"  {i + 1}. {route}: SURFACE (no flight)")
             else:

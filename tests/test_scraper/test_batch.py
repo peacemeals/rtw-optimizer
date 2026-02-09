@@ -142,8 +142,7 @@ class TestSearchItineraryPrices:
 class TestCheckItineraryAvailability:
     """Test batch availability checking."""
 
-    @pytest.mark.asyncio
-    async def test_returns_nones_without_credentials(self):
+    def test_returns_nones_without_credentials(self):
         """Returns all Nones when ExpertFlyer credentials are not available."""
         itin = _make_itinerary()
 
@@ -151,7 +150,7 @@ class TestCheckItineraryAvailability:
             instance = MockScraper.return_value
             instance.credentials_available.return_value = False
 
-            results = await check_itinerary_availability(itin)
+            results = check_itinerary_availability(itin)
 
         assert len(results) == len(itin.segments)
         for r in results:

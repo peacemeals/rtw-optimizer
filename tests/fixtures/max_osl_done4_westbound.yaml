@@ -1,0 +1,107 @@
+# Oslo DONE4 Westbound — 16 segments, 4 continents, Norway filing bargain
+# Second-cheapest business origin ($5,400 base), max intra-continent hops
+# Direction: TC2 → TC1 → TC3 → TC2 (westbound)
+# Continents: EU/ME, N.America, Asia, SWP
+ticket:
+  type: DONE4
+  cabin: business
+  origin: OSL
+  passengers: 1
+
+segments:
+  # EU/ME
+  - from: OSL
+    to: LHR
+    carrier: BA
+    type: transit
+    date: 2026-03-10
+  # EU/ME
+  - from: LHR
+    to: MAD
+    carrier: IB
+    type: stopover
+    date: 2026-03-10
+  # EU/ME → N.America (Atlantic crossing)
+  - from: MAD
+    to: JFK
+    carrier: IB
+    type: stopover
+    date: 2026-03-14
+  # N.America
+  - from: JFK
+    to: MIA
+    carrier: AA
+    type: stopover
+    date: 2026-03-18
+  # N.America
+  - from: MIA
+    to: ORD
+    carrier: AA
+    type: stopover
+    date: 2026-03-22
+  # N.America
+  - from: ORD
+    to: DFW
+    carrier: AA
+    type: transit
+    date: 2026-03-25
+  # N.America
+  - from: DFW
+    to: HNL
+    carrier: AA
+    type: stopover
+    date: 2026-03-25
+  # N.America → Asia (Pacific crossing)
+  - from: HNL
+    to: NRT
+    carrier: JL
+    type: stopover
+    date: 2026-03-29
+  # Asia
+  - from: NRT
+    to: HKG
+    carrier: CX
+    type: stopover
+    date: 2026-04-02
+  # Asia
+  - from: HKG
+    to: BKK
+    carrier: CX
+    type: stopover
+    date: 2026-04-06
+  # Asia
+  - from: BKK
+    to: KUL
+    carrier: MH
+    type: transit
+    date: 2026-04-09
+  # Asia → SWP
+  - from: KUL
+    to: SYD
+    carrier: MH
+    type: stopover
+    date: 2026-04-09
+  # SWP
+  - from: SYD
+    to: AKL
+    carrier: QF
+    type: stopover
+    date: 2026-04-13
+  # SWP
+  - from: AKL
+    to: MEL
+    carrier: QF
+    type: transit
+    date: 2026-04-16
+  # SWP → EU/ME
+  - from: MEL
+    to: LHR
+    carrier: QF
+    type: transit
+    date: 2026-04-16
+  # EU/ME (return)
+  - from: LHR
+    to: OSL
+    carrier: BA
+    type: stopover
+    date: 2026-04-20

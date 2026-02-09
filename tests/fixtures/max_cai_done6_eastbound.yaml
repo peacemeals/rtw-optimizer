@@ -1,0 +1,107 @@
+# Cairo DONE6 Eastbound — 16 segments, 6 continents, maximum value
+# Cheapest origin ($5,500 base), all 6 continents via JNB for sub-Saharan Africa
+# Direction: TC2 → TC3 → TC1 → TC2 (eastbound)
+# Continents: EU/ME, Africa, Asia, SWP, N.America, S.America
+ticket:
+  type: DONE6
+  cabin: business
+  origin: CAI
+  passengers: 1
+
+segments:
+  # EU/ME
+  - from: CAI
+    to: AMM
+    carrier: RJ
+    type: transit
+    date: 2026-03-10
+  # EU/ME
+  - from: AMM
+    to: DOH
+    carrier: QR
+    type: stopover
+    date: 2026-03-10
+  # EU/ME → Africa (sub-Saharan)
+  - from: DOH
+    to: JNB
+    carrier: QR
+    type: stopover
+    date: 2026-03-14
+  # Africa → Asia
+  - from: JNB
+    to: HKG
+    carrier: CX
+    type: stopover
+    date: 2026-03-18
+  # Asia
+  - from: HKG
+    to: NRT
+    carrier: CX
+    type: stopover
+    date: 2026-03-22
+  # Asia
+  - from: NRT
+    to: BKK
+    carrier: JL
+    type: stopover
+    date: 2026-03-26
+  # Asia (4th — at limit)
+  - from: BKK
+    to: KUL
+    carrier: MH
+    type: transit
+    date: 2026-03-29
+  # Asia → SWP
+  - from: KUL
+    to: SYD
+    carrier: MH
+    type: stopover
+    date: 2026-03-29
+  # SWP
+  - from: SYD
+    to: AKL
+    carrier: QF
+    type: stopover
+    date: 2026-04-02
+  # SWP
+  - from: AKL
+    to: NAN
+    carrier: FJ
+    type: transit
+    date: 2026-04-05
+  # SWP → N.America (Pacific crossing)
+  - from: NAN
+    to: LAX
+    carrier: FJ
+    type: stopover
+    date: 2026-04-05
+  # N.America
+  - from: LAX
+    to: ORD
+    carrier: AA
+    type: transit
+    date: 2026-04-09
+  # N.America
+  - from: ORD
+    to: MIA
+    carrier: AA
+    type: stopover
+    date: 2026-04-09
+  # N.America → S.America
+  - from: MIA
+    to: GRU
+    carrier: AA
+    type: stopover
+    date: 2026-04-13
+  # S.America → EU/ME (Atlantic crossing)
+  - from: GRU
+    to: LHR
+    carrier: BA
+    type: transit
+    date: 2026-04-17
+  # EU/ME (return)
+  - from: LHR
+    to: CAI
+    carrier: BA
+    type: stopover
+    date: 2026-04-17

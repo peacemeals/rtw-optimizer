@@ -109,6 +109,10 @@ class ExpertFlyerScraper:
         self._page = None
         self._logged_in = False
 
+    def credentials_available(self) -> bool:
+        """Check if ExpertFlyer credentials are stored in keychain."""
+        return _get_credentials() is not None
+
     def __enter__(self) -> "ExpertFlyerScraper":
         self._ensure_browser()
         return self

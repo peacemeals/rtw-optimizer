@@ -128,7 +128,7 @@ def _try_playwright_price(origin, dest, seg_date, cabin):
     return search_playwright_sync(origin, dest, seg_date, cabin)
 
 
-async def check_itinerary_availability(
+def check_itinerary_availability(
     itinerary: Itinerary,
     booking_class: str = "D",
 ) -> list[Optional[dict]]:
@@ -156,7 +156,7 @@ async def check_itinerary_availability(
             continue
 
         try:
-            avail = await scraper.check_availability(
+            avail = scraper.check_availability(
                 origin=seg.from_airport,
                 dest=seg.to_airport,
                 date=seg.date,
