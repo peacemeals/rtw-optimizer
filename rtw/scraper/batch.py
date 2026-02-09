@@ -13,7 +13,7 @@ from typing import Optional
 from rtw.models import Itinerary
 from rtw.scraper.cache import ScrapeCache
 from rtw.scraper.expertflyer import ExpertFlyerScraper
-from rtw.scraper.google_flights import FlightPrice, search_fast_flights
+from rtw.scraper.google_flights import FlightPrice, SearchBackend, search_fast_flights
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +21,14 @@ logger = logging.getLogger(__name__)
 async def search_itinerary_prices(
     itinerary: Itinerary,
     cache: Optional[ScrapeCache] = None,
+    backend: SearchBackend = SearchBackend.AUTO,
 ) -> list[Optional[FlightPrice]]:
     """Search prices for all flown segments in an itinerary.
 
     Args:
         itinerary: The RTW itinerary to price.
         cache: Optional ScrapeCache for caching results.
+        backend: Which search backend to use.
 
     Returns:
         List of FlightPrice (or None) for each segment. Surface segments
@@ -54,18 +56,14 @@ async def search_itinerary_prices(
             except Exception:
                 pass  # Invalid cache entry, re-fetch
 
-        # Try searching
+        # Try searching with cascade
         try:
-            price = search_fast_flights(
-                origin=seg.from_airport,
-                dest=seg.to_airport,
-                date=seg.date,
-                cabin=itinerary.ticket.cabin.value,
+            price = _search_segment_price(
+                seg.from_airport, seg.to_airport, seg.date,
+                itinerary.ticket.cabin.value, backend,
             )
             if price is not None:
-                # Cache the result
                 from dataclasses import asdict
-
                 cache.set(cache_key, asdict(price))
             results.append(price)
         except Exception as exc:
@@ -78,6 +76,56 @@ async def search_itinerary_prices(
             results.append(None)
 
     return results
+
+
+def _search_segment_price(origin, dest, seg_date, cabin, backend):
+    """Search a single segment using the configured backend."""
+    if backend == SearchBackend.AUTO:
+        search_fns = _auto_price_cascade()
+    elif backend == SearchBackend.SERPAPI:
+        search_fns = [("serpapi", _try_serpapi_price)]
+    elif backend == SearchBackend.FAST_FLIGHTS:
+        search_fns = [("fast-flights", _try_fast_flights_price)]
+    elif backend == SearchBackend.PLAYWRIGHT:
+        search_fns = [("playwright", _try_playwright_price)]
+    else:
+        search_fns = _auto_price_cascade()
+
+    for name, fn in search_fns:
+        try:
+            result = fn(origin, dest, seg_date, cabin)
+            if result is not None:
+                return result
+        except Exception as exc:
+            if backend != SearchBackend.AUTO:
+                raise
+            logger.debug("Batch cascade %s failed for %s-%s: %s", name, origin, dest, exc)
+
+    return None
+
+
+def _auto_price_cascade():
+    """Build cascade for batch pricing: serpapi -> fast-flights (no Playwright — too slow)."""
+    fns = []
+    from rtw.scraper.serpapi_flights import serpapi_available
+    if serpapi_available():
+        fns.append(("serpapi", _try_serpapi_price))
+    fns.append(("fast-flights", _try_fast_flights_price))
+    return fns
+
+
+def _try_serpapi_price(origin, dest, seg_date, cabin):
+    from rtw.scraper.serpapi_flights import search_serpapi
+    return search_serpapi(origin=origin, dest=dest, date=seg_date, cabin=cabin)
+
+
+def _try_fast_flights_price(origin, dest, seg_date, cabin):
+    return search_fast_flights(origin, dest, seg_date, cabin)
+
+
+def _try_playwright_price(origin, dest, seg_date, cabin):
+    from rtw.scraper.google_flights import search_playwright_sync
+    return search_playwright_sync(origin, dest, seg_date, cabin)
 
 
 async def check_itinerary_availability(
@@ -132,6 +180,7 @@ async def check_itinerary_availability(
 def search_with_fallback(
     itinerary: Itinerary,
     cache: Optional[ScrapeCache] = None,
+    backend: SearchBackend = SearchBackend.AUTO,
 ) -> list[Optional[FlightPrice]]:
     """Synchronous wrapper for search_itinerary_prices.
 
@@ -141,6 +190,7 @@ def search_with_fallback(
     Args:
         itinerary: The RTW itinerary to price.
         cache: Optional ScrapeCache for caching results.
+        backend: Which search backend to use.
 
     Returns:
         List of FlightPrice (or None) for each segment.
@@ -152,12 +202,10 @@ def search_with_fallback(
             loop = None
 
         if loop is not None and loop.is_running():
-            # Already in an async context - can't nest event loops
-            # Return empty results rather than crash
             logger.warning("Cannot run async search from within running event loop")
             return [None] * len(itinerary.segments)
 
-        return asyncio.run(search_itinerary_prices(itinerary, cache))
+        return asyncio.run(search_itinerary_prices(itinerary, cache, backend))
 
     except Exception as exc:
         logger.warning("search_with_fallback failed: %s", exc)

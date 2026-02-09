@@ -188,3 +188,101 @@ class TestSearchInputValidation:
             "--origin", "SYD", "--cabin", "ultra_first",
         ])
         assert result.exit_code == 2
+
+
+class TestBackendFlag:
+    def test_invalid_backend_value(self):
+        result = runner.invoke(app, [
+            "search", "--cities", "LHR,NRT,JFK",
+            "--from", FUTURE, "--to", FUTURE_END,
+            "--origin", "SYD", "--backend", "nonexistent",
+        ])
+        assert result.exit_code == 2
+        assert "Invalid backend" in result.output
+
+    @patch("rtw.search.generator.generate_candidates")
+    @patch("rtw.search.query.parse_search_query")
+    def test_backend_auto_accepted(self, mock_parse, mock_gen):
+        from rtw.search.models import SearchQuery
+
+        mock_parse.return_value = SearchQuery(
+            cities=["LHR", "NRT", "JFK"], origin="SYD",
+            date_from=date.today() + timedelta(days=60),
+            date_to=date.today() + timedelta(days=120),
+            cabin=CabinClass.BUSINESS, ticket_type=TicketType.DONE3,
+        )
+        mock_gen.return_value = _mock_candidates(1)
+        result = runner.invoke(app, [
+            "search", "--cities", "LHR,NRT,JFK",
+            "--from", FUTURE, "--to", FUTURE_END,
+            "--origin", "SYD", "--backend", "auto",
+            "--skip-availability", "--plain",
+        ])
+        assert result.exit_code == 0
+
+    def test_backend_serpapi_no_key_error(self, monkeypatch):
+        monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+        result = runner.invoke(app, [
+            "search", "--cities", "LHR,NRT,JFK",
+            "--from", FUTURE, "--to", FUTURE_END,
+            "--origin", "SYD", "--backend", "serpapi",
+        ])
+        assert result.exit_code == 2
+
+    def test_backend_serpapi_no_key_error_message(self, monkeypatch):
+        monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+        result = runner.invoke(app, [
+            "search", "--cities", "LHR,NRT,JFK",
+            "--from", FUTURE, "--to", FUTURE_END,
+            "--origin", "SYD", "--backend", "serpapi",
+        ])
+        assert "SERPAPI_API_KEY" in result.output
+
+    @patch("rtw.search.generator.generate_candidates")
+    @patch("rtw.search.query.parse_search_query")
+    def test_backend_auto_no_key_silent(self, mock_parse, mock_gen, monkeypatch):
+        from rtw.search.models import SearchQuery
+
+        monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+        mock_parse.return_value = SearchQuery(
+            cities=["LHR", "NRT", "JFK"], origin="SYD",
+            date_from=date.today() + timedelta(days=60),
+            date_to=date.today() + timedelta(days=120),
+            cabin=CabinClass.BUSINESS, ticket_type=TicketType.DONE3,
+        )
+        mock_gen.return_value = _mock_candidates(1)
+        result = runner.invoke(app, [
+            "search", "--cities", "LHR,NRT,JFK",
+            "--from", FUTURE, "--to", FUTURE_END,
+            "--origin", "SYD", "--backend", "auto",
+            "--skip-availability", "--plain",
+        ])
+        assert result.exit_code == 0
+        assert "SERPAPI_API_KEY" not in result.output
+
+    @patch("rtw.search.generator.generate_candidates")
+    @patch("rtw.search.query.parse_search_query")
+    def test_short_flag_b(self, mock_parse, mock_gen):
+        from rtw.search.models import SearchQuery
+
+        mock_parse.return_value = SearchQuery(
+            cities=["LHR", "NRT", "JFK"], origin="SYD",
+            date_from=date.today() + timedelta(days=60),
+            date_to=date.today() + timedelta(days=120),
+            cabin=CabinClass.BUSINESS, ticket_type=TicketType.DONE3,
+        )
+        mock_gen.return_value = _mock_candidates(1)
+        result = runner.invoke(app, [
+            "search", "--cities", "LHR,NRT,JFK",
+            "--from", FUTURE, "--to", FUTURE_END,
+            "--origin", "SYD", "-b", "auto",
+            "--skip-availability", "--plain",
+        ])
+        assert result.exit_code == 0
+
+    def test_backend_flag_on_scrape_prices(self):
+        result = runner.invoke(app, [
+            "scrape", "prices", "--backend", "nonexistent", "dummy.yaml",
+        ])
+        assert result.exit_code == 2
+        assert "Invalid backend" in result.output

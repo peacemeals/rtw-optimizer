@@ -4,8 +4,6 @@ Provides commands for validating, costing, NTP estimation, value analysis,
 booking script generation, and scraping for RTW itineraries.
 """
 
-from __future__ import annotations
-
 import difflib
 import logging
 import sys
@@ -546,6 +544,7 @@ def new_template(
 @scrape_app.command(name="prices")
 def scrape_prices(
     file: str = typer.Argument(help="Path to itinerary YAML file"),
+    backend: Annotated[str, typer.Option("--backend", "-b", help="Flight search backend: auto, serpapi, fast-flights, playwright")] = "auto",
     json: JsonFlag = False,
     plain: PlainFlag = False,
     verbose: VerboseFlag = False,
@@ -553,6 +552,27 @@ def scrape_prices(
 ) -> None:
     """Search Google Flights prices for all segments."""
     _setup_logging(verbose, quiet)
+
+    # Validate backend
+    from rtw.scraper.google_flights import SearchBackend
+    try:
+        search_backend = SearchBackend(backend)
+    except ValueError:
+        valid = ", ".join(b.value for b in SearchBackend)
+        _error_panel(f"Invalid backend '{backend}'. Choose from: {valid}")
+        raise typer.Exit(code=2)
+
+    if search_backend == SearchBackend.SERPAPI:
+        from rtw.scraper.serpapi_flights import serpapi_available
+        if not serpapi_available():
+            _error_panel(
+                "SERPAPI_API_KEY not set.\n\n"
+                "1. Sign up at https://serpapi.com (free tier: 250 searches/mo)\n"
+                "2. Set the key: export SERPAPI_API_KEY=your_key_here\n\n"
+                "Or use --backend auto to try other backends."
+            )
+            raise typer.Exit(code=2)
+
     try:
         itinerary = _load_itinerary(file)
         from rtw.scraper.batch import search_with_fallback
@@ -560,7 +580,7 @@ def scrape_prices(
         import json as json_mod
 
         cache = ScrapeCache()
-        results = search_with_fallback(itinerary, cache)
+        results = search_with_fallback(itinerary, cache, backend=search_backend)
 
         if json:
             data = []
@@ -595,6 +615,21 @@ def scrape_prices(
     except typer.BadParameter:
         raise
     except Exception as exc:
+        from rtw.scraper.serpapi_flights import SerpAPIAuthError, SerpAPIQuotaError
+        if isinstance(exc, SerpAPIAuthError):
+            _error_panel(
+                "SerpAPI authentication failed.\n\n"
+                "Check your key at https://serpapi.com/manage-api-key\n"
+                "Or use --backend auto to try other backends."
+            )
+            raise typer.Exit(code=2)
+        if isinstance(exc, SerpAPIQuotaError):
+            _error_panel(
+                "SerpAPI monthly quota exceeded.\n\n"
+                "Upgrade at https://serpapi.com/pricing\n"
+                "or use --backend auto to fall back to other search methods."
+            )
+            raise typer.Exit(code=2)
         _error_panel(str(exc))
         raise typer.Exit(code=2)
 
@@ -693,6 +728,8 @@ def search(
     top_n: Annotated[int, typer.Option("--top", "-n", help="Max results")] = 10,
     rank_by: Annotated[str, typer.Option("--rank-by", help="Ranking strategy")] = "availability",
     skip_availability: Annotated[bool, typer.Option("--skip-availability", help="Skip availability check")] = False,
+    nonstop: Annotated[bool, typer.Option("--nonstop", help="Show only nonstop flights")] = False,
+    backend: Annotated[str, typer.Option("--backend", "-b", help="Flight search backend: auto, serpapi, fast-flights, playwright")] = "auto",
     export: Annotated[int, typer.Option("--export", "-e", help="Export option N as YAML")] = 0,
     json: JsonFlag = False,
     plain: PlainFlag = False,
@@ -712,6 +749,26 @@ def search(
     if not origin:
         _error_panel("Missing --origin. Example: --origin CAI")
         raise typer.Exit(code=2)
+
+    # Validate backend
+    from rtw.scraper.google_flights import SearchBackend
+    try:
+        search_backend = SearchBackend(backend)
+    except ValueError:
+        valid = ", ".join(b.value for b in SearchBackend)
+        _error_panel(f"Invalid backend '{backend}'. Choose from: {valid}")
+        raise typer.Exit(code=2)
+
+    if search_backend == SearchBackend.SERPAPI:
+        from rtw.scraper.serpapi_flights import serpapi_available
+        if not serpapi_available():
+            _error_panel(
+                "SERPAPI_API_KEY not set.\n\n"
+                "1. Sign up at https://serpapi.com (free tier: 250 searches/mo)\n"
+                "2. Set the key: export SERPAPI_API_KEY=your_key_here\n\n"
+                "Or use --backend auto to try other backends."
+            )
+            raise typer.Exit(code=2)
 
     try:
         from datetime import date as Date
@@ -781,7 +838,10 @@ def search(
             from rtw.scraper.cache import ScrapeCache
             from rtw.search.availability import AvailabilityChecker
 
-            checker = AvailabilityChecker(cache=ScrapeCache(), cabin=cabin)
+            max_stops = 0 if nonstop else None
+            checker = AvailabilityChecker(
+                cache=ScrapeCache(), cabin=cabin, max_stops=max_stops, backend=search_backend,
+            )
             check_count = min(3, len(ranked))
 
             if not quiet and not json:
@@ -837,6 +897,21 @@ def search(
     except typer.Exit:
         raise
     except Exception as exc:
+        from rtw.scraper.serpapi_flights import SerpAPIAuthError, SerpAPIQuotaError
+        if isinstance(exc, SerpAPIAuthError):
+            _error_panel(
+                "SerpAPI authentication failed.\n\n"
+                "Check your key at https://serpapi.com/manage-api-key\n"
+                "Or use --backend auto to try other backends."
+            )
+            raise typer.Exit(code=2)
+        if isinstance(exc, SerpAPIQuotaError):
+            _error_panel(
+                "SerpAPI monthly quota exceeded.\n\n"
+                "Upgrade at https://serpapi.com/pricing\n"
+                "or use --backend auto to fall back to other search methods."
+            )
+            raise typer.Exit(code=2)
         _error_panel(str(exc))
         raise typer.Exit(code=2)
 

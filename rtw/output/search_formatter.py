@@ -22,6 +22,25 @@ def _format_usd(amount: float) -> str:
     return f"${amount:,.0f}"
 
 
+def _format_stops(stops: Optional[int]) -> str:
+    """Human-readable stops label."""
+    if stops is None:
+        return ""
+    if stops == 0:
+        return "nonstop"
+    if stops == 1:
+        return "1 stop"
+    return f"{stops} stops"
+
+
+def _format_duration(minutes: Optional[int]) -> str:
+    """Format minutes as 'Xh YYm' (e.g., '12h40')."""
+    if minutes is None:
+        return ""
+    hours, mins = divmod(minutes, 60)
+    return f"{hours}h{mins:02d}"
+
+
 def _fare_summary_rich(opt: ScoredCandidate) -> Optional[str]:
     """Build Rich-formatted fare comparison line for an option."""
     fc = opt.fare_comparison
@@ -155,22 +174,32 @@ def format_search_results_rich(result: SearchResult) -> str:
             table.add_column("#", style="dim", width=3)
             table.add_column("Route", style="cyan", width=10)
             table.add_column("Carrier", width=4)
+            table.add_column("Flight", width=8)
             table.add_column("Date", width=12)
+            table.add_column("Stops", width=12)
             table.add_column("Availability", width=12)
 
             for i, seg in enumerate(segs):
                 route = f"{seg.from_airport}-{seg.to_airport}"
                 carrier = seg.carrier or "??"
+                flight_str = ""
                 date_str = ""
                 avail_str = "-"
+                stops_str = ""
 
                 if i < len(route_segs) and route_segs[i].availability:
                     avail = route_segs[i].availability
                     avail_str = f"[{_status_color(avail.status)}]{_status_label(avail.status)}[/]"
                     if avail.date:
                         date_str = avail.date.strftime("%b %d")
+                    stops_str = _format_stops(avail.stops)
+                    dur = _format_duration(avail.duration_minutes)
+                    if dur:
+                        stops_str = f"{stops_str} {dur}".strip()
+                    if avail.flight_number:
+                        flight_str = avail.flight_number
 
-                table.add_row(str(i + 1), route, carrier, date_str, avail_str)
+                table.add_row(str(i + 1), route, carrier, flight_str, date_str, stops_str, avail_str)
 
             console.print(table)
             fare_line = _fare_summary_rich(opt)
@@ -227,12 +256,23 @@ def format_search_results_plain(result: SearchResult) -> str:
             carrier = seg.carrier or "??"
             avail = "-"
             date_str = ""
+            stops_str = ""
+            flight_str = ""
             if i < len(route_segs) and route_segs[i].availability:
                 a = route_segs[i].availability
                 avail = _status_label(a.status)
                 if a.date:
                     date_str = a.date.strftime("%b %d")
-            lines.append(f"  {i + 1:>2}. {route:<10} {carrier:<4} {date_str:<10} {avail}")
+                stops_str = _format_stops(a.stops)
+                dur = _format_duration(a.duration_minutes)
+                if dur:
+                    stops_str = f"{stops_str} {dur}".strip()
+                if a.flight_number:
+                    flight_str = a.flight_number
+            lines.append(
+                f"  {i + 1:>2}. {route:<10} {carrier:<4} {flight_str:<9}"
+                f"{date_str:<10} {avail:<12} {stops_str}"
+            )
         fare_line = _fare_summary_plain(opt)
         if fare_line:
             lines.append(f"  {fare_line}")
@@ -262,6 +302,11 @@ def format_search_json(result: SearchResult) -> str:
                     seg_data["date"] = a.date.isoformat()
                 if a.price_usd:
                     seg_data["price_usd"] = a.price_usd
+                if a.stops is not None:
+                    seg_data["stops"] = a.stops
+                seg_data["source"] = a.source
+                seg_data["flight_number"] = a.flight_number
+                seg_data["duration_minutes"] = a.duration_minutes
             segs_data.append(seg_data)
 
         opt_data: dict = {
