@@ -678,6 +678,170 @@ def cache_clear() -> None:
 
 
 # ---------------------------------------------------------------------------
+# T049: Search command
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def search(
+    cities: Annotated[str, typer.Option("--cities", "-c", help="Comma-separated IATA codes to visit")] = "",
+    date_from: Annotated[str, typer.Option("--from", "-f", help="Start date (YYYY-MM-DD)")] = "",
+    date_to: Annotated[str, typer.Option("--to", "-t", help="End date (YYYY-MM-DD)")] = "",
+    origin: Annotated[str, typer.Option("--origin", "-o", help="Origin airport IATA code")] = "",
+    cabin: Annotated[str, typer.Option("--cabin", help="Cabin class")] = "business",
+    ticket_type: Annotated[str, typer.Option("--type", help="Ticket type")] = "DONE4",
+    top_n: Annotated[int, typer.Option("--top", "-n", help="Max results")] = 10,
+    rank_by: Annotated[str, typer.Option("--rank-by", help="Ranking strategy")] = "availability",
+    skip_availability: Annotated[bool, typer.Option("--skip-availability", help="Skip availability check")] = False,
+    export: Annotated[int, typer.Option("--export", "-e", help="Export option N as YAML")] = 0,
+    json: JsonFlag = False,
+    plain: PlainFlag = False,
+    verbose: VerboseFlag = False,
+    quiet: QuietFlag = False,
+) -> None:
+    """Search for valid RTW itinerary options."""
+    _setup_logging(verbose, quiet)
+
+    # Validate required inputs
+    if not cities:
+        _error_panel("Missing --cities. Example: --cities LHR,NRT,SYD,JFK")
+        raise typer.Exit(code=2)
+    if not date_from or not date_to:
+        _error_panel("Missing --from and/or --to dates. Example: --from 2025-09-01 --to 2025-11-15")
+        raise typer.Exit(code=2)
+    if not origin:
+        _error_panel("Missing --origin. Example: --origin CAI")
+        raise typer.Exit(code=2)
+
+    try:
+        from datetime import date as Date
+
+        from rtw.search.query import parse_search_query
+        from rtw.search.generator import generate_candidates
+        from rtw.search.scorer import score_candidates, rank_candidates
+        from rtw.search.models import ScoredCandidate, SearchResult
+        from rtw.output.search_formatter import (
+            format_search_skeletons_rich,
+            format_search_skeletons_plain,
+            format_search_results_rich,
+            format_search_results_plain,
+            format_search_json,
+        )
+
+        city_list = [c.strip() for c in cities.split(",") if c.strip()]
+        df = Date.fromisoformat(date_from)
+        dt = Date.fromisoformat(date_to)
+
+        # Phase 1: Parse and validate
+        query = parse_search_query(
+            cities=city_list,
+            origin=origin,
+            date_from=df,
+            date_to=dt,
+            cabin=cabin,
+            ticket_type=ticket_type,
+            top_n=top_n,
+            rank_by=rank_by,
+        )
+
+        # Phase 2: Generate candidates
+        candidates = generate_candidates(query)
+        if not candidates:
+            if not quiet:
+                _error_panel("No valid itinerary options found. Try different cities or ticket type.")
+            raise typer.Exit(code=1)
+
+        # Phase 3: Score and rank (initial)
+        scored = [ScoredCandidate(candidate=c) for c in candidates]
+        scored = score_candidates(scored, rank_by=rank_by)
+        ranked = rank_candidates(scored, top_n=top_n)
+
+        total_generated = len(candidates)
+
+        # Base fare lookup (for skeleton display and later comparison)
+        from rtw.cost import CostEstimator
+        base_fare_usd = CostEstimator().get_base_fare(query.origin, query.ticket_type)
+
+        # Phase 4: Display skeletons (unless JSON or export-only)
+        if not json and export == 0 and not quiet:
+            result = SearchResult(
+                query=query,
+                candidates_generated=total_generated,
+                options=ranked,
+                base_fare_usd=base_fare_usd,
+            )
+            fmt = _get_format(False, plain)
+            if fmt == "rich":
+                typer.echo(format_search_skeletons_rich(result))
+            else:
+                typer.echo(format_search_skeletons_plain(result))
+
+        # Phase 5: Availability check (top 3 unless skipped)
+        if not skip_availability:
+            from rtw.scraper.cache import ScrapeCache
+            from rtw.search.availability import AvailabilityChecker
+
+            checker = AvailabilityChecker(cache=ScrapeCache(), cabin=cabin)
+            check_count = min(3, len(ranked))
+
+            if not quiet and not json:
+                typer.echo(f"Checking availability for top {check_count} options...", err=True)
+
+            for i in range(check_count):
+                def _progress(idx, total, seg_info, result):
+                    if verbose and not quiet:
+                        status = result.status.value if result else "?"
+                        typer.echo(
+                            f"  [{idx + 1}/{total}] {seg_info['from']}-{seg_info['to']}: {status}",
+                            err=True,
+                        )
+
+                checker.check_candidate(ranked[i], query, progress_cb=_progress if verbose else None)
+
+            # Re-score with availability data
+            ranked = score_candidates(ranked, rank_by=rank_by)
+            ranked = rank_candidates(ranked, top_n=top_n)
+
+        # Compute fare comparison for all ranked options
+        from rtw.search.fare_comparison import compute_fare_comparison
+        for opt in ranked:
+            opt.fare_comparison = compute_fare_comparison(opt, query)
+
+        # Phase 6: Final output
+        result = SearchResult(
+            query=query,
+            candidates_generated=total_generated,
+            options=ranked,
+            base_fare_usd=base_fare_usd,
+        )
+
+        if json:
+            typer.echo(format_search_json(result))
+        elif export > 0:
+            if export > len(ranked):
+                _error_panel(f"Option {export} does not exist. Only {len(ranked)} options available.")
+                raise typer.Exit(code=2)
+            from rtw.search.exporter import export_itinerary
+            yaml_str = export_itinerary(ranked[export - 1], query)
+            typer.echo(yaml_str)
+        else:
+            fmt = _get_format(False, plain)
+            if fmt == "rich":
+                typer.echo(format_search_results_rich(result))
+            else:
+                typer.echo(format_search_results_plain(result))
+
+    except ValueError as exc:
+        _error_panel(str(exc))
+        raise typer.Exit(code=2)
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _error_panel(str(exc))
+        raise typer.Exit(code=2)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 

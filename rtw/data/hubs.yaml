@@ -1,0 +1,241 @@
+# oneworld hub connection table for RTW route generation
+# Priority: 1 = best (lowest YQ, best availability, most direct)
+
+# TC1 (Americas) → TC2 (Europe/ME/Africa)
+TC1_to_TC2:
+  - from_hub: JFK
+    to_hub: LHR
+    carrier: AA
+    priority: 1
+  - from_hub: JFK
+    to_hub: LHR
+    carrier: BA
+    priority: 2
+  - from_hub: MIA
+    to_hub: MAD
+    carrier: IB
+    priority: 2
+  - from_hub: LAX
+    to_hub: LHR
+    carrier: AA
+    priority: 3
+  - from_hub: LAX
+    to_hub: LHR
+    carrier: BA
+    priority: 3
+  - from_hub: DFW
+    to_hub: LHR
+    carrier: AA
+    priority: 3
+  - from_hub: JFK
+    to_hub: DOH
+    carrier: QR
+    priority: 3
+
+# TC2 (Europe/ME/Africa) → TC3 (Asia/SWP)
+TC2_to_TC3:
+  - from_hub: DOH
+    to_hub: HKG
+    carrier: QR
+    priority: 1
+  - from_hub: DOH
+    to_hub: NRT
+    carrier: QR
+    priority: 1
+  - from_hub: DOH
+    to_hub: KUL
+    carrier: QR
+    priority: 2
+  - from_hub: HEL
+    to_hub: NRT
+    carrier: AY
+    priority: 2
+  - from_hub: HEL
+    to_hub: HKG
+    carrier: AY
+    priority: 2
+  - from_hub: LHR
+    to_hub: HKG
+    carrier: CX
+    priority: 2
+  - from_hub: LHR
+    to_hub: NRT
+    carrier: JL
+    priority: 2
+  - from_hub: LHR
+    to_hub: NRT
+    carrier: BA
+    priority: 3
+  - from_hub: LHR
+    to_hub: SYD
+    carrier: QF
+    priority: 3
+  - from_hub: DOH
+    to_hub: SYD
+    carrier: QR
+    priority: 3
+
+# TC3 (Asia/SWP) → TC1 (Americas)
+TC3_to_TC1:
+  - from_hub: NRT
+    to_hub: LAX
+    carrier: JL
+    priority: 1
+  - from_hub: NRT
+    to_hub: SFO
+    carrier: JL
+    priority: 1
+  - from_hub: HKG
+    to_hub: LAX
+    carrier: CX
+    priority: 2
+  - from_hub: HKG
+    to_hub: SFO
+    carrier: CX
+    priority: 2
+  - from_hub: NRT
+    to_hub: LAX
+    carrier: AA
+    priority: 2
+  - from_hub: SYD
+    to_hub: LAX
+    carrier: QF
+    priority: 2
+  - from_hub: NRT
+    to_hub: DFW
+    carrier: AA
+    priority: 3
+  - from_hub: SYD
+    to_hub: DFW
+    carrier: QF
+    priority: 3
+
+# TC2 (Europe/ME/Africa) → TC1 (Americas)
+TC2_to_TC1:
+  - from_hub: LHR
+    to_hub: JFK
+    carrier: AA
+    priority: 1
+  - from_hub: LHR
+    to_hub: JFK
+    carrier: BA
+    priority: 2
+  - from_hub: MAD
+    to_hub: MIA
+    carrier: IB
+    priority: 2
+  - from_hub: LHR
+    to_hub: LAX
+    carrier: AA
+    priority: 3
+  - from_hub: LHR
+    to_hub: LAX
+    carrier: BA
+    priority: 3
+  - from_hub: DOH
+    to_hub: JFK
+    carrier: QR
+    priority: 3
+  - from_hub: LHR
+    to_hub: DFW
+    carrier: AA
+    priority: 3
+
+# TC1 (Americas) → TC3 (Asia/SWP)
+TC1_to_TC3:
+  - from_hub: LAX
+    to_hub: NRT
+    carrier: JL
+    priority: 1
+  - from_hub: SFO
+    to_hub: NRT
+    carrier: JL
+    priority: 1
+  - from_hub: LAX
+    to_hub: HKG
+    carrier: CX
+    priority: 2
+  - from_hub: SFO
+    to_hub: HKG
+    carrier: CX
+    priority: 2
+  - from_hub: LAX
+    to_hub: NRT
+    carrier: AA
+    priority: 2
+  - from_hub: LAX
+    to_hub: SYD
+    carrier: QF
+    priority: 2
+  - from_hub: DFW
+    to_hub: NRT
+    carrier: AA
+    priority: 3
+  - from_hub: DFW
+    to_hub: SYD
+    carrier: QF
+    priority: 3
+
+# TC3 (Asia/SWP) → TC2 (Europe/ME/Africa)
+TC3_to_TC2:
+  - from_hub: HKG
+    to_hub: DOH
+    carrier: QR
+    priority: 1
+  - from_hub: NRT
+    to_hub: DOH
+    carrier: QR
+    priority: 1
+  - from_hub: NRT
+    to_hub: HEL
+    carrier: AY
+    priority: 2
+  - from_hub: HKG
+    to_hub: HEL
+    carrier: AY
+    priority: 2
+  - from_hub: HKG
+    to_hub: LHR
+    carrier: CX
+    priority: 2
+  - from_hub: NRT
+    to_hub: LHR
+    carrier: JL
+    priority: 2
+  - from_hub: KUL
+    to_hub: DOH
+    carrier: QR
+    priority: 2
+  - from_hub: NRT
+    to_hub: LHR
+    carrier: BA
+    priority: 3
+  - from_hub: SYD
+    to_hub: LHR
+    carrier: QF
+    priority: 3
+  - from_hub: SYD
+    to_hub: DOH
+    carrier: QR
+    priority: 3
+
+# Intra-continent carriers and hub airports
+intra_continent:
+  EU_ME:
+    carriers: [BA, IB, AY, RJ, AT]
+    hubs: [LHR, MAD, HEL, AMM, DOH]
+  Africa:
+    carriers: [AT, BA]
+    hubs: [CMN, NBO]
+  Asia:
+    carriers: [CX, MH, JL, UL]
+    hubs: [HKG, KUL, NRT, CMB]
+  SWP:
+    carriers: [QF, FJ]
+    hubs: [SYD, MEL, NAN]
+  N_America:
+    carriers: [AA, AS]
+    hubs: [JFK, LAX, DFW, SEA]
+  S_America:
+    carriers: [AA]
+    hubs: [MIA, GRU, SCL]
