@@ -1,0 +1,43 @@
+# New: First Class RTW ex-New York JFK (Westbound)
+# Premium routing via Pacific, maximum comfort carriers
+# AONE4 - First Class, 4 continents: N.America, Asia, EU/ME, SWP
+# Tests: First class, westbound direction, premium carriers (QF, CX, BA)
+ticket:
+  type: AONE4
+  cabin: first
+  origin: JFK
+  passengers: 1
+
+segments:
+  - from: JFK
+    to: LAX
+    carrier: AA
+    type: transit
+  - from: LAX
+    to: HNL
+    carrier: AA
+    type: stopover
+  - from: HNL
+    to: NRT
+    carrier: JL
+    type: stopover
+  - from: NRT
+    to: HKG
+    carrier: CX
+    type: stopover
+  - from: HKG
+    to: SYD
+    carrier: CX
+    type: stopover
+  - from: SYD
+    to: MEL
+    carrier: QF
+    type: transit
+  - from: MEL
+    to: LHR
+    carrier: QF
+    type: stopover
+  - from: LHR
+    to: JFK
+    carrier: BA
+    type: stopover

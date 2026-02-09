@@ -1,0 +1,43 @@
+# New: Economy Class RTW ex-Singapore (Westbound)
+# Budget-friendly economy routing with surface sectors
+# LONE4 - Economy, 4 continents: Asia, EU/ME, N.America, SWP
+# Tests: Economy ticket, LONE type, surface sectors, transit segments
+ticket:
+  type: LONE4
+  cabin: economy
+  origin: SIN
+  passengers: 1
+
+segments:
+  - from: SIN
+    to: DEL
+    carrier: MH
+    type: stopover
+  - from: DEL
+    to: DOH
+    carrier: QR
+    type: transit
+  - from: DOH
+    to: LHR
+    carrier: QR
+    type: stopover
+  - from: LHR
+    to: MAD
+    carrier: IB
+    type: stopover
+  - from: MAD
+    to: MIA
+    carrier: IB
+    type: stopover
+  - from: MIA
+    to: LAX
+    carrier: AA
+    type: stopover
+  - from: LAX
+    to: SYD
+    carrier: QF
+    type: stopover
+  - from: SYD
+    to: SIN
+    carrier: QF
+    type: stopover

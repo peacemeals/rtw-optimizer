@@ -1,0 +1,35 @@
+# New: Business Class RTW ex-Tokyo Narita (Eastbound)
+# Inspired by FlyerTalk Japan-origin routings
+# DONE5 - Business, 5 continents: Asia, N.America, S.America, EU/ME, Africa
+# Tests: Africa inclusion, Atlantic crossing both ways, CX long-haul
+ticket:
+  type: DONE5
+  cabin: business
+  origin: NRT
+  passengers: 1
+
+segments:
+  - from: NRT
+    to: JFK
+    carrier: JL
+    type: stopover
+  - from: JFK
+    to: GRU
+    carrier: AA
+    type: stopover
+  - from: GRU
+    to: LHR
+    carrier: BA
+    type: stopover
+  - from: LHR
+    to: JNB
+    carrier: BA
+    type: stopover
+  - from: JNB
+    to: HKG
+    carrier: CX
+    type: stopover
+  - from: HKG
+    to: NRT
+    carrier: CX
+    type: stopover

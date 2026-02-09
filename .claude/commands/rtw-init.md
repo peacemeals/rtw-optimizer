@@ -42,18 +42,16 @@ Use AskUserQuestion:
     description: "I'll set it up later. Google Flights pricing won't work."
 - multiSelect: false
 
-If "Yes": Ask the user to provide their key, then instruct them:
+If "Yes": Tell the user to add this line **themselves** in a separate terminal:
 
 ```
-Add this to your shell profile (~/.zshrc or ~/.bashrc):
-
-export SERPAPI_API_KEY=your_key_here
-
-Then restart your terminal or run: source ~/.zshrc
+echo 'export SERPAPI_API_KEY=your_key_here' >> ~/.zshrc && source ~/.zshrc
 ```
 
-Write the export line for them. Run:
-`python3 -c "import os; os.environ.get('SERPAPI_API_KEY') or print('Note: key will be available after restarting terminal')"`
+Explain: "Replace `your_key_here` with your actual API key. Never paste API keys into this chat — add them directly to your shell profile in a separate terminal."
+
+Then ask the user to confirm when done. After they confirm, verify:
+Run: `python3 -c "import os; key = os.environ.get('SERPAPI_API_KEY', ''); print('configured' if key else 'missing')"'`
 
 If "Skip": Note that `/rtw-search` will work without pricing data (uses `--skip-availability`), and `/rtw-scrape` won't work.
 
@@ -85,9 +83,18 @@ Use AskUserQuestion:
     description: "I don't have ExpertFlyer. D-class verification won't work."
 - multiSelect: false
 
-If "Yes": Run `python3 -m rtw login expertflyer` which will interactively prompt for email and password, store them in the system keyring, and test the login.
+If "Yes": Tell the user to run this command **in a separate terminal** (not here):
 
-If the login test succeeds, also check if Playwright's Chromium is installed:
+```
+python3 -m rtw login expertflyer
+```
+
+Explain: "This command prompts for your email and password interactively and stores them securely in your system keyring. Run it in a separate terminal window — never paste credentials into this chat."
+
+Then ask the user to confirm when done. After they confirm, verify it worked:
+Run: `python3 -m rtw login status --json 2>/dev/null || echo '{"has_credentials": false}'`
+
+If credentials are now stored, also check if Playwright's Chromium is installed:
 Run: `python3 -c "from playwright.sync_api import sync_playwright; print('installed')" 2>/dev/null || echo "missing"`
 
 If Playwright Chromium is missing:
