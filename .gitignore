@@ -35,3 +35,8 @@ Thumbs.db
 
 # AI task management
 ai/
+
+# Claude Code local files
+.claude/rules/ralph-dev-*
+.claude/settings.local.json
+CLAUDE.local.md
