@@ -196,3 +196,54 @@ class TestDClassVerifier:
         assert result.total_flown == 0
         assert result.fully_bookable is True
         assert scraper.check_availability.call_count == 0
+
+    def test_per_carrier_booking_class_aa_uses_h(self):
+        """AA segments should check H class, not D (per carriers.yaml)."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, carrier="AA", origin="LAX", dest="JFK"),
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[
+                _make_segment("LAX", "JFK", carrier="AA"),
+            ],
+        )
+        verifier.verify_option(option)
+
+        # Verify the scraper was called with booking_class="H" for AA
+        call_kwargs = scraper.check_availability.call_args
+        assert call_kwargs.kwargs.get("booking_class") == "H" or \
+               (call_kwargs.args and len(call_kwargs.args) > 4 and call_kwargs.args[4] == "H"), \
+               f"Expected booking_class='H' for AA, got: {call_kwargs}"
+
+    def test_per_carrier_booking_class_cx_uses_d(self):
+        """CX segments should check D class (default from carriers.yaml)."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, carrier="CX", origin="HKG", dest="SIN"),
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[
+                _make_segment("HKG", "SIN", carrier="CX"),
+            ],
+        )
+        verifier.verify_option(option)
+
+        call_kwargs = scraper.check_availability.call_args
+        assert call_kwargs.kwargs.get("booking_class") == "D" or \
+               (call_kwargs.args and len(call_kwargs.args) > 4 and call_kwargs.args[4] == "D"), \
+               f"Expected booking_class='D' for CX, got: {call_kwargs}"
+
+    def test_get_booking_class_method(self):
+        """_get_booking_class returns correct class per carrier."""
+        verifier, _, _ = self._make_verifier()
+        assert verifier._get_booking_class("AA") == "H"
+        assert verifier._get_booking_class("CX") == "D"
+        assert verifier._get_booking_class("BA") == "D"
+        assert verifier._get_booking_class("JL") == "D"
+        assert verifier._get_booking_class("") == "D"
+        assert verifier._get_booking_class("ZZ") == "D"  # unknown carrier

@@ -6,7 +6,10 @@ D-class availability across all flown segments of an itinerary option.
 
 import logging
 import time
+from pathlib import Path
 from typing import Optional
+
+import yaml
 
 from rtw.scraper.cache import ScrapeCache
 from rtw.scraper.expertflyer import ExpertFlyerScraper, SessionExpiredError
@@ -43,11 +46,28 @@ class DClassVerifier:
         self.booking_class = booking_class
         self._session_expired = False
 
+        # Load carrier data for per-carrier booking class lookup
+        carriers_path = Path(__file__).parent.parent / "data" / "carriers.yaml"
+        with open(carriers_path) as f:
+            self._carriers: dict = yaml.safe_load(f)
+
+    def _get_booking_class(self, carrier: str) -> str:
+        """Look up the correct booking class for a carrier.
+
+        Uses rtw_booking_class from carriers.yaml (e.g. AA -> H).
+        Falls back to self.booking_class (default D) for unknown carriers.
+        """
+        if not carrier:
+            return self.booking_class
+        carrier_data = self._carriers.get(carrier.upper(), {})
+        return carrier_data.get("rtw_booking_class", self.booking_class) or self.booking_class
+
     def _cache_key(self, seg: SegmentVerification) -> str:
         """Build cache key for a segment."""
+        bc = self._get_booking_class(seg.carrier or "")
         return (
             f"{_CACHE_KEY_PREFIX}_{seg.carrier}_{seg.origin}_"
-            f"{seg.destination}_{seg.target_date}_{self.booking_class}"
+            f"{seg.destination}_{seg.target_date}_{bc}"
         )
 
     def _check_cache(self, seg: SegmentVerification) -> Optional[DClassResult]:
@@ -130,15 +150,16 @@ class DClassVerifier:
                         )
                     continue
 
-            # Call scraper
+            # Call scraper with per-carrier booking class
             try:
+                booking_class = self._get_booking_class(seg.carrier or "")
                 start = time.time()
                 dclass = self.scraper.check_availability(
                     origin=seg.origin,
                     dest=seg.destination,
                     date=seg.target_date,
                     carrier=seg.carrier or "",
-                    booking_class=self.booking_class,
+                    booking_class=booking_class,
                 )
                 elapsed = time.time() - start
                 logger.debug(
