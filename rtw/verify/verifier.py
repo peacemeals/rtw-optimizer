@@ -3,8 +3,12 @@
 Coordinates the scraper, cache, and progress reporting to verify
 award class availability across all flown segments of an itinerary option.
 Uses per-carrier booking class resolution (AA=H, others=D for business).
+
+Supports date flex mode (±3 days) to find alternate travel dates when
+the target date has no availability.
 """
 
+import datetime
 import logging
 import time
 from typing import Optional
@@ -14,6 +18,7 @@ from rtw.models import CabinClass
 from rtw.scraper.cache import ScrapeCache
 from rtw.scraper.expertflyer import ExpertFlyerScraper, SessionExpiredError
 from rtw.verify.models import (
+    AlternateDateResult,
     DClassResult,
     DClassStatus,
     ProgressCallback,
@@ -26,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 _CACHE_TTL_HOURS = 24
 _CACHE_KEY_PREFIX = "dclass"
+_FLEX_DAYS = 3  # Check ±3 days when date_flex is enabled
 
 
 class DClassVerifier:
@@ -36,6 +42,10 @@ class DClassVerifier:
 
     Resolves booking class per carrier (AA=H, others=D for business)
     unless an explicit override is provided.
+
+    When date_flex=True, segments with no availability (seats=0) on the
+    target date will be checked on ±1-3 adjacent days. The best
+    alternate date is reported via DClassResult.alternate_dates.
     """
 
     def __init__(
@@ -44,11 +54,13 @@ class DClassVerifier:
         cache: Optional[ScrapeCache] = None,
         booking_class: Optional[str] = None,
         cabin: CabinClass = CabinClass.BUSINESS,
+        date_flex: bool = False,
     ) -> None:
         self.scraper = scraper
         self.cache = cache or ScrapeCache()
         self._booking_class_override = booking_class
         self.cabin = cabin
+        self.date_flex = date_flex
         self._session_expired = False
 
     def _get_segment_booking_class(self, seg: SegmentVerification) -> str:
@@ -96,6 +108,61 @@ class DClassVerifier:
         key = self._cache_key(seg)
         self.cache.set(key, result.model_dump(mode="json"), ttl_hours=_CACHE_TTL_HOURS)
 
+    def _check_alternate_dates(
+        self,
+        seg: SegmentVerification,
+        booking_class: str,
+    ) -> list[AlternateDateResult]:
+        """Check ±3 days around the target date for availability.
+
+        Only called when the target date has no availability (seats=0).
+        Queries are made in order of proximity: ±1, ±2, ±3 days.
+        Stops early if session expires.
+
+        Returns list of AlternateDateResult for dates with seats > 0.
+        """
+        alternates: list[AlternateDateResult] = []
+        target = seg.target_date
+
+        # Check in order of proximity: ±1, ±2, ±3
+        for offset in range(1, _FLEX_DAYS + 1):
+            for direction in (+1, -1):
+                day_offset = offset * direction
+                alt_date = target + datetime.timedelta(days=day_offset)
+
+                if self._session_expired:
+                    return alternates
+
+                try:
+                    alt_result = self.scraper.check_availability(
+                        origin=seg.origin,
+                        dest=seg.destination,
+                        date=alt_date,
+                        carrier=seg.carrier or "",
+                        booking_class=booking_class,
+                    )
+                    if alt_result and alt_result.seats > 0:
+                        alternates.append(AlternateDateResult(
+                            date=alt_date,
+                            seats=alt_result.seats,
+                            offset_days=day_offset,
+                        ))
+                        logger.info(
+                            "  Date flex %s→%s: %s has %s%d",
+                            seg.origin, seg.destination,
+                            alt_date, booking_class, alt_result.seats,
+                        )
+                except SessionExpiredError:
+                    self._session_expired = True
+                    return alternates
+                except Exception as exc:
+                    logger.debug(
+                        "Date flex check failed for %s (%+d days): %s",
+                        alt_date, day_offset, exc,
+                    )
+
+        return alternates
+
     def verify_option(
         self,
         option: VerifyOption,
@@ -108,6 +175,9 @@ class DClassVerifier:
         On SessionExpiredError, remaining segments are marked UNKNOWN.
         On individual segment errors, that segment is marked ERROR
         and verification continues.
+
+        When date_flex is enabled, sold-out segments (seats=0) are
+        additionally checked on ±1-3 adjacent days.
         """
         result = VerifyResult(option_id=option.option_id, segments=[])
 
@@ -172,6 +242,15 @@ class DClassVerifier:
 
                 if dclass:
                     dclass.booking_class = seg_bc
+                    # Date flex: check alternate dates if target date has no availability
+                    if (
+                        self.date_flex
+                        and seg.target_date
+                        and dclass.seats == 0
+                        and not self._session_expired
+                    ):
+                        alternates = self._check_alternate_dates(seg, seg_bc)
+                        dclass.alternate_dates = alternates
                     verified.dclass = dclass
                     self._store_cache(seg, dclass)
                 else:

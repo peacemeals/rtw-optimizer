@@ -1061,6 +1061,7 @@ def verify(
     ] = None,
     booking_class: Annotated[Optional[str], typer.Option("--class", "-c", help="Override booking class (default: auto per carrier, AA=H, others=D)")] = None,
     no_cache: Annotated[bool, typer.Option("--no-cache", help="Skip cache")] = False,
+    date_flex: Annotated[bool, typer.Option("--flex", help="Check ±3 days for alternate availability when target date is sold out")] = False,
     json: JsonFlag = False,
     plain: PlainFlag = False,
     verbose: VerboseFlag = False,
@@ -1070,6 +1071,10 @@ def verify(
 
     Uses ExpertFlyer to check booking class availability on each flown
     segment. Requires a prior `rtw search` and `rtw login expertflyer`.
+
+    With --flex, segments with no availability on the target date will
+    also be checked on ±1, ±2, and ±3 adjacent days. The best alternate
+    date is shown in the results.
     """
     _setup_logging(verbose, quiet)
 
@@ -1127,6 +1132,7 @@ def verify(
                 scraper=scraper,
                 cache=ScrapeCache(),
                 booking_class=booking_class,
+                date_flex=date_flex,
             )
             # Note: booking_class=None means auto per-carrier (AA=H, others=D)
 

@@ -301,3 +301,132 @@ class TestDClassVerifier:
         )
         result = verifier.verify_option(option)
         assert result.segments[0].dclass.booking_class == "H"
+
+
+class TestDateFlex:
+    """Tests for the ±3 days date flex feature."""
+
+    def _make_verifier(self, scraper_results=None, date_flex=True):
+        scraper = MagicMock()
+        if scraper_results is not None:
+            scraper.check_availability.side_effect = scraper_results
+        cache = MagicMock()
+        cache.get.return_value = None
+        return DClassVerifier(scraper=scraper, cache=cache, date_flex=date_flex), scraper, cache
+
+    def test_date_flex_not_triggered_when_available(self):
+        """If target date has availability, no alternate dates are checked."""
+        target_result = _make_dclass(DClassStatus.AVAILABLE, 5, origin="SYD", dest="HKG")
+        verifier, scraper, cache = self._make_verifier(scraper_results=[target_result])
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("SYD", "HKG", date=datetime.date(2026, 4, 6))],
+        )
+        result = verifier.verify_option(option)
+        # Only 1 call: the target date. No alternate date queries.
+        assert scraper.check_availability.call_count == 1
+        assert result.segments[0].dclass.seats == 5
+        assert result.segments[0].dclass.alternate_dates == []
+
+    def test_date_flex_checks_alternates_when_sold_out(self):
+        """If target date is D0, ±3 days are checked."""
+        target_result = _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG")
+        # Alternates: +1=D0, -1=D3, +2=D5, -2=D0, +3=D0, -3=D0
+        alt_results = [
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG"),  # +1
+            _make_dclass(DClassStatus.AVAILABLE, 3, origin="SYD", dest="HKG"),  # -1
+            _make_dclass(DClassStatus.AVAILABLE, 5, origin="SYD", dest="HKG"),  # +2
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG"),  # -2
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG"),  # +3
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG"),  # -3
+        ]
+        verifier, scraper, cache = self._make_verifier(
+            scraper_results=[target_result] + alt_results,
+        )
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("SYD", "HKG", date=datetime.date(2026, 4, 6))],
+        )
+        result = verifier.verify_option(option)
+        # 1 target + 6 alternates = 7 calls
+        assert scraper.check_availability.call_count == 7
+        seg = result.segments[0]
+        assert seg.dclass.seats == 0
+        assert len(seg.dclass.alternate_dates) == 2  # -1 (D3) and +2 (D5)
+
+        # Best alternate should be +2 (D5)
+        best = seg.dclass.best_alternate
+        assert best is not None
+        assert best.seats == 5
+        assert best.offset_days == 2
+        assert best.date == datetime.date(2026, 4, 8)
+
+    def test_date_flex_disabled_by_default(self):
+        """With date_flex=False, no alternate dates are checked."""
+        target_result = _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG")
+        verifier, scraper, cache = self._make_verifier(
+            scraper_results=[target_result],
+            date_flex=False,
+        )
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("SYD", "HKG", date=datetime.date(2026, 4, 6))],
+        )
+        result = verifier.verify_option(option)
+        assert scraper.check_availability.call_count == 1
+        assert result.segments[0].dclass.alternate_dates == []
+
+    def test_date_flex_stops_on_session_expired(self):
+        """If session expires during flex checks, remaining are skipped."""
+        target_result = _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="SYD", dest="HKG")
+        verifier, scraper, cache = self._make_verifier(
+            scraper_results=[
+                target_result,
+                _make_dclass(DClassStatus.AVAILABLE, 3, origin="SYD", dest="HKG"),  # +1
+                SessionExpiredError("expired"),  # -1 fails
+            ],
+        )
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("SYD", "HKG", date=datetime.date(2026, 4, 6))],
+        )
+        result = verifier.verify_option(option)
+        seg = result.segments[0]
+        # Should have 1 alternate (from +1 day before session expired)
+        assert len(seg.dclass.alternate_dates) == 1
+        assert seg.dclass.alternate_dates[0].offset_days == 1
+
+    def test_date_flex_with_multiple_segments(self):
+        """Date flex only applies to sold-out segments."""
+        # Seg 1: D9 (no flex needed), Seg 2: D0 (flex), plus alternates for seg 2
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, origin="SYD", dest="HKG"),  # seg 1
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="HKG", dest="LHR"),  # seg 2
+            # Flex queries for seg 2:
+            _make_dclass(DClassStatus.AVAILABLE, 2, origin="HKG", dest="LHR"),  # +1
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="HKG", dest="LHR"),  # -1
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="HKG", dest="LHR"),  # +2
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="HKG", dest="LHR"),  # -2
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="HKG", dest="LHR"),  # +3
+            _make_dclass(DClassStatus.NOT_AVAILABLE, 0, origin="HKG", dest="LHR"),  # -3
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[
+                _make_segment("SYD", "HKG", date=datetime.date(2026, 4, 6)),
+                _make_segment("HKG", "LHR", date=datetime.date(2026, 4, 10)),
+            ],
+        )
+        result = verifier.verify_option(option)
+        # Seg 1: 1 call (available, no flex)
+        # Seg 2: 1 target + 6 alternates = 7 calls
+        assert scraper.check_availability.call_count == 8
+        assert result.segments[0].dclass.alternate_dates == []
+        assert len(result.segments[1].dclass.alternate_dates) == 1
+        assert result.segments[1].dclass.alternate_dates[0].offset_days == 1
