@@ -68,28 +68,15 @@ class BookingGenerator:
     def _get_booking_class(self, carrier: Optional[str], cabin: CabinClass) -> Optional[str]:
         """Determine the booking class for a carrier/cabin combination.
 
-        Business: AA -> H (special case), others -> D (from carriers.yaml).
-        Economy: L for most carriers.
-        First: A for most carriers.
-        Surface segments (carrier=None): returns None.
+        Delegates to shared utility in rtw.carriers. Returns None for
+        surface segments (carrier=None).
         """
         if carrier is None:
             return None
 
-        carrier = carrier.upper()
+        from rtw.carriers import get_booking_class
 
-        if cabin == CabinClass.BUSINESS:
-            # Use rtw_booking_class from carriers.yaml (AA=H, others=D)
-            carrier_data = self._carriers.get(carrier, {})
-            return carrier_data.get("rtw_booking_class", "D")
-
-        if cabin == CabinClass.ECONOMY:
-            return "L"
-
-        if cabin == CabinClass.FIRST:
-            return "A"
-
-        return "D"
+        return get_booking_class(carrier, cabin)
 
     def _is_same_city(self, airport1: str, airport2: str) -> bool:
         """Check if two airports are in the same city group."""

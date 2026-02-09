@@ -1,10 +1,11 @@
-"""Tests for D-class verification orchestrator."""
+"""Tests for availability verification orchestrator."""
 
 import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rtw.models import CabinClass
 from rtw.scraper.expertflyer import SessionExpiredError
 from rtw.verify.models import (
     DClassResult,
@@ -196,3 +197,107 @@ class TestDClassVerifier:
         assert result.total_flown == 0
         assert result.fully_bookable is True
         assert scraper.check_availability.call_count == 0
+
+    def test_aa_segment_uses_h_class(self):
+        """AA segments should be queried with booking_class='H'."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, carrier="AA", origin="JFK", dest="LAX"),
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("JFK", "LAX", carrier="AA")],
+        )
+        verifier.verify_option(option)
+        call_kwargs = scraper.check_availability.call_args[1]
+        assert call_kwargs["booking_class"] == "H"
+
+    def test_cx_segment_uses_d_class(self):
+        """Non-AA carriers should use D class."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9),
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("SYD", "HKG", carrier="CX")],
+        )
+        verifier.verify_option(option)
+        call_kwargs = scraper.check_availability.call_args[1]
+        assert call_kwargs["booking_class"] == "D"
+
+    def test_mixed_carriers_use_correct_classes(self):
+        """AA gets H, CX gets D, BA gets D in the same option."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, carrier="AA", origin="JFK", dest="LHR"),
+            _make_dclass(DClassStatus.AVAILABLE, 5, carrier="CX", origin="LHR", dest="HKG"),
+            _make_dclass(DClassStatus.AVAILABLE, 7, carrier="BA", origin="HKG", dest="SYD"),
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[
+                _make_segment("JFK", "LHR", carrier="AA"),
+                _make_segment("LHR", "HKG", carrier="CX"),
+                _make_segment("HKG", "SYD", carrier="BA"),
+            ],
+        )
+        verifier.verify_option(option)
+        calls = scraper.check_availability.call_args_list
+        assert calls[0][1]["booking_class"] == "H"  # AA
+        assert calls[1][1]["booking_class"] == "D"  # CX
+        assert calls[2][1]["booking_class"] == "D"  # BA
+
+    def test_booking_class_override_forces_all(self):
+        """Explicit booking_class override forces all segments to that class."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, carrier="AA", origin="JFK", dest="LHR"),
+            _make_dclass(DClassStatus.AVAILABLE, 5, carrier="CX", origin="LHR", dest="HKG"),
+        ]
+        scraper = MagicMock()
+        scraper.check_availability.side_effect = results
+        cache = MagicMock()
+        cache.get.return_value = None
+        verifier = DClassVerifier(scraper=scraper, cache=cache, booking_class="D")
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[
+                _make_segment("JFK", "LHR", carrier="AA"),
+                _make_segment("LHR", "HKG", carrier="CX"),
+            ],
+        )
+        verifier.verify_option(option)
+        calls = scraper.check_availability.call_args_list
+        assert calls[0][1]["booking_class"] == "D"  # Override: AA forced to D
+        assert calls[1][1]["booking_class"] == "D"  # CX stays D
+
+    def test_cache_key_includes_correct_booking_class(self):
+        """AA cache key should contain H, CX cache key should contain D."""
+        verifier, scraper, cache = self._make_verifier()
+
+        aa_seg = _make_segment("JFK", "LHR", carrier="AA")
+        cx_seg = _make_segment("LHR", "HKG", carrier="CX")
+
+        aa_key = verifier._cache_key(aa_seg)
+        cx_key = verifier._cache_key(cx_seg)
+
+        assert "_H" in aa_key
+        assert "_D" in cx_key
+
+    def test_dclass_result_has_booking_class_set(self):
+        """DClassResult returned for AA should have booking_class='H'."""
+        results = [
+            _make_dclass(DClassStatus.AVAILABLE, 9, carrier="AA", origin="JFK", dest="LHR"),
+        ]
+        verifier, scraper, cache = self._make_verifier(scraper_results=results)
+
+        option = VerifyOption(
+            option_id=1,
+            segments=[_make_segment("JFK", "LHR", carrier="AA")],
+        )
+        result = verifier.verify_option(option)
+        assert result.segments[0].dclass.booking_class == "H"

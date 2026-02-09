@@ -648,7 +648,7 @@ def scrape_prices(
 @scrape_app.command(name="availability")
 def scrape_availability(
     file: str = typer.Argument(help="Path to itinerary YAML file"),
-    booking_class: str = typer.Option("D", "--class", "-c", help="Booking class to check"),
+    booking_class: Optional[str] = typer.Option(None, "--class", "-c", help="Override booking class (default: auto per carrier, AA=H, others=D)"),
     verbose: VerboseFlag = False,
     quiet: QuietFlag = False,
 ) -> None:
@@ -1059,7 +1059,7 @@ def verify(
     option_ids: Annotated[
         Optional[list[int]], typer.Argument(help="Option IDs to verify (1-based). Omit for top 3.")
     ] = None,
-    booking_class: Annotated[str, typer.Option("--class", "-c", help="Booking class")] = "D",
+    booking_class: Annotated[Optional[str], typer.Option("--class", "-c", help="Override booking class (default: auto per carrier, AA=H, others=D)")] = None,
     no_cache: Annotated[bool, typer.Option("--no-cache", help="Skip cache")] = False,
     json: JsonFlag = False,
     plain: PlainFlag = False,
@@ -1128,6 +1128,7 @@ def verify(
                 cache=ScrapeCache(),
                 booking_class=booking_class,
             )
+            # Note: booking_class=None means auto per-carrier (AA=H, others=D)
 
             # Convert and verify with Rich progress
             results = []

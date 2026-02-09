@@ -41,7 +41,7 @@ class FlightAvailability(BaseModel):
 
 
 class DClassResult(BaseModel):
-    """Result of a D-class check for a single flight segment."""
+    """Result of an availability check for a single flight segment."""
 
     status: DClassStatus
     seats: int = Field(default=0, ge=0, le=9)
@@ -50,6 +50,7 @@ class DClassResult(BaseModel):
     origin: str = Field(min_length=3, max_length=3)
     destination: str = Field(min_length=3, max_length=3)
     target_date: datetime.date
+    booking_class: str = "D"
     checked_at: datetime.datetime = Field(
         default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
@@ -64,7 +65,7 @@ class DClassResult(BaseModel):
 
     @property
     def available_flights(self) -> list[FlightAvailability]:
-        """Flights with D-class seats > 0, sorted by seats desc then departure."""
+        """Flights with seats > 0, sorted by seats desc then departure."""
         avail = [f for f in self.flights if f.seats > 0]
         return sorted(avail, key=lambda f: (-f.seats, f.depart_time or ""))
 
@@ -78,14 +79,15 @@ class DClassResult(BaseModel):
 
     @property
     def display_code(self) -> str:
-        """Short display code: D9 (3 avl), D0, D?, D!"""
+        """Short display code: H9 (3 avl), D0, D?, H!"""
+        bc = self.booking_class
         if self.status == DClassStatus.ERROR:
-            return "D!"
+            return f"{bc}!"
         if self.status == DClassStatus.UNKNOWN:
-            return "D?"
+            return f"{bc}?"
         if self.flights:
-            return f"D{self.seats} ({self.available_count} avl)"
-        return f"D{self.seats}"
+            return f"{bc}{self.seats} ({self.available_count} avl)"
+        return f"{bc}{self.seats}"
 
     @property
     def best_alternate(self) -> Optional[AlternateDateResult]:

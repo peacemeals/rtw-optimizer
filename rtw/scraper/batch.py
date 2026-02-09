@@ -130,23 +130,28 @@ def _try_playwright_price(origin, dest, seg_date, cabin):
 
 def check_itinerary_availability(
     itinerary: Itinerary,
-    booking_class: str = "D",
+    booking_class: Optional[str] = None,
 ) -> list[Optional[dict]]:
     """Check award availability for all flown segments.
 
     Args:
         itinerary: The RTW itinerary to check.
-        booking_class: Booking class to check (default "D" for business award).
+        booking_class: Override booking class for all segments. When None
+            (default), resolves per carrier from carriers.yaml (AA=H, others=D).
 
     Returns:
         List of availability dicts (or None) for each segment.
         Surface segments and segments without carriers get None. Never raises.
     """
+    from rtw.carriers import get_booking_class
+
     scraper = ExpertFlyerScraper()
 
     if not scraper.credentials_available():
         logger.info("ExpertFlyer credentials not available - returning empty results")
         return [None] * len(itinerary.segments)
+
+    cabin = itinerary.ticket.cabin
 
     results: list[Optional[dict]] = []
 
@@ -155,13 +160,15 @@ def check_itinerary_availability(
             results.append(None)
             continue
 
+        seg_bc = booking_class if booking_class is not None else get_booking_class(seg.carrier, cabin)
+
         try:
             avail = scraper.check_availability(
                 origin=seg.from_airport,
                 dest=seg.to_airport,
                 date=seg.date,
                 carrier=seg.carrier,
-                booking_class=booking_class,
+                booking_class=seg_bc,
             )
             results.append(avail)
         except Exception as exc:

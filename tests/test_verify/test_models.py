@@ -365,3 +365,85 @@ class TestDClassResultWithFlights:
         assert r2.flight_count == 4
         assert r2.available_count == 3
         assert r2.flights[0].flight_number == "CX252"
+
+
+class TestBookingClassDisplay:
+    """Test display_code with different booking classes."""
+
+    def test_h_class_available(self):
+        r = DClassResult(
+            status=DClassStatus.AVAILABLE, seats=9, carrier="AA",
+            origin="JFK", destination="LHR",
+            target_date=datetime.date(2026, 3, 10),
+            booking_class="H",
+        )
+        assert r.display_code == "H9"
+
+    def test_h_class_not_available(self):
+        r = DClassResult(
+            status=DClassStatus.NOT_AVAILABLE, seats=0, carrier="AA",
+            origin="JFK", destination="LHR",
+            target_date=datetime.date(2026, 3, 10),
+            booking_class="H",
+        )
+        assert r.display_code == "H0"
+
+    def test_h_class_unknown(self):
+        r = DClassResult(
+            status=DClassStatus.UNKNOWN, seats=0, carrier="AA",
+            origin="JFK", destination="LHR",
+            target_date=datetime.date(2026, 3, 10),
+            booking_class="H",
+        )
+        assert r.display_code == "H?"
+
+    def test_h_class_error(self):
+        r = DClassResult(
+            status=DClassStatus.ERROR, seats=0, carrier="AA",
+            origin="JFK", destination="LHR",
+            target_date=datetime.date(2026, 3, 10),
+            booking_class="H",
+            error_message="timeout",
+        )
+        assert r.display_code == "H!"
+
+    def test_h_class_with_flights(self):
+        flights = [
+            FlightAvailability(carrier="AA", flight_number="AA100", seats=9, booking_class="H"),
+            FlightAvailability(carrier="AA", flight_number="AA106", seats=0, booking_class="H"),
+        ]
+        r = DClassResult(
+            status=DClassStatus.AVAILABLE, seats=9, carrier="AA",
+            origin="JFK", destination="LHR",
+            target_date=datetime.date(2026, 3, 10),
+            booking_class="H",
+            flights=flights,
+        )
+        assert r.display_code == "H9 (1 avl)"
+
+    def test_default_booking_class_is_d(self):
+        r = DClassResult(
+            status=DClassStatus.AVAILABLE, seats=5, carrier="CX",
+            origin="LHR", destination="HKG",
+            target_date=datetime.date(2026, 3, 10),
+        )
+        assert r.booking_class == "D"
+        assert r.display_code == "D5"
+
+    def test_booking_class_serialization_roundtrip(self):
+        r = DClassResult(
+            status=DClassStatus.AVAILABLE, seats=9, carrier="AA",
+            origin="JFK", destination="LHR",
+            target_date=datetime.date(2026, 3, 10),
+            booking_class="H",
+        )
+        data = r.model_dump(mode="json")
+        r2 = DClassResult.model_validate(data)
+        assert r2.booking_class == "H"
+        assert r2.display_code == "H9"
+
+    def test_flight_availability_h_class(self):
+        f = FlightAvailability(
+            carrier="AA", flight_number="AA100", seats=9, booking_class="H",
+        )
+        assert f.booking_class == "H"

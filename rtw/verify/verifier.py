@@ -1,13 +1,16 @@
-"""D-class verification orchestrator.
+"""Availability verification orchestrator.
 
 Coordinates the scraper, cache, and progress reporting to verify
-D-class availability across all flown segments of an itinerary option.
+award class availability across all flown segments of an itinerary option.
+Uses per-carrier booking class resolution (AA=H, others=D for business).
 """
 
 import logging
 import time
 from typing import Optional
 
+from rtw.carriers import get_booking_class
+from rtw.models import CabinClass
 from rtw.scraper.cache import ScrapeCache
 from rtw.scraper.expertflyer import ExpertFlyerScraper, SessionExpiredError
 from rtw.verify.models import (
@@ -26,28 +29,44 @@ _CACHE_KEY_PREFIX = "dclass"
 
 
 class DClassVerifier:
-    """Verify D-class availability for itinerary segments.
+    """Verify award class availability for itinerary segments.
 
     Checks each flown segment against ExpertFlyer, using the cache
     to avoid redundant queries. Surface segments are skipped.
+
+    Resolves booking class per carrier (AA=H, others=D for business)
+    unless an explicit override is provided.
     """
 
     def __init__(
         self,
         scraper: ExpertFlyerScraper,
         cache: Optional[ScrapeCache] = None,
-        booking_class: str = "D",
+        booking_class: Optional[str] = None,
+        cabin: CabinClass = CabinClass.BUSINESS,
     ) -> None:
         self.scraper = scraper
         self.cache = cache or ScrapeCache()
-        self.booking_class = booking_class
+        self._booking_class_override = booking_class
+        self.cabin = cabin
         self._session_expired = False
+
+    def _get_segment_booking_class(self, seg: SegmentVerification) -> str:
+        """Resolve the booking class for a segment.
+
+        If an override was set, use it for all segments.
+        Otherwise, look up per carrier from carriers.yaml.
+        """
+        if self._booking_class_override is not None:
+            return self._booking_class_override
+        return get_booking_class(seg.carrier, self.cabin)
 
     def _cache_key(self, seg: SegmentVerification) -> str:
         """Build cache key for a segment."""
+        bc = self._get_segment_booking_class(seg)
         return (
             f"{_CACHE_KEY_PREFIX}_{seg.carrier}_{seg.origin}_"
-            f"{seg.destination}_{seg.target_date}_{self.booking_class}"
+            f"{seg.destination}_{seg.target_date}_{bc}"
         )
 
     def _check_cache(self, seg: SegmentVerification) -> Optional[DClassResult]:
@@ -111,6 +130,7 @@ class DClassVerifier:
                     origin=seg.origin,
                     destination=seg.destination,
                     target_date=seg.target_date,
+                    booking_class=self._get_segment_booking_class(seg),
                     error_message="Session expired during batch",
                 )
                 result.segments.append(verified)
@@ -132,13 +152,14 @@ class DClassVerifier:
 
             # Call scraper
             try:
+                seg_bc = self._get_segment_booking_class(seg)
                 start = time.time()
                 dclass = self.scraper.check_availability(
                     origin=seg.origin,
                     dest=seg.destination,
                     date=seg.target_date,
                     carrier=seg.carrier or "",
-                    booking_class=self.booking_class,
+                    booking_class=seg_bc,
                 )
                 elapsed = time.time() - start
                 logger.debug(
@@ -150,6 +171,7 @@ class DClassVerifier:
                 )
 
                 if dclass:
+                    dclass.booking_class = seg_bc
                     verified.dclass = dclass
                     self._store_cache(seg, dclass)
                 else:
@@ -160,6 +182,7 @@ class DClassVerifier:
                         origin=seg.origin,
                         destination=seg.destination,
                         target_date=seg.target_date,
+                        booking_class=seg_bc,
                         error_message="Scraper returned None (no session?)",
                     )
 
@@ -172,6 +195,7 @@ class DClassVerifier:
                     origin=seg.origin,
                     destination=seg.destination,
                     target_date=seg.target_date,
+                    booking_class=self._get_segment_booking_class(seg),
                     error_message=str(exc),
                 )
             except Exception as exc:
@@ -182,6 +206,7 @@ class DClassVerifier:
                     origin=seg.origin,
                     destination=seg.destination,
                     target_date=seg.target_date,
+                    booking_class=self._get_segment_booking_class(seg),
                     error_message=str(exc),
                 )
 
