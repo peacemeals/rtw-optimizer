@@ -96,7 +96,7 @@ def main():
 
     # --- Command frontmatter checks ---
     print("\n4. Command Frontmatter")
-    commands = ["rtw-verify", "rtw-status", "rtw-setup", "rtw-help"]
+    commands = ["rtw-init", "rtw-verify", "rtw-status", "rtw-setup", "rtw-help"]
     for cmd in commands:
         path = ROOT / ".claude" / "commands" / f"{cmd}.md"
         if path.exists():

@@ -94,7 +94,7 @@ python3 -m rtw verify                  # Verify D-class availability (needs Expe
 - **Test structure**: Test files mirror source: `rtw/cost.py` → `tests/test_cost.py`
 - **Models**: All data models are Pydantic v2 BaseModel. Use `model_dump(mode="json")` for serialization.
 - **YAML**: Itinerary files use YAML format. See `python3 -m rtw new` for template.
-- **Credentials**: ExpertFlyer credentials stored in system keyring via `python3 -m rtw login expertflyer`
+- **Credentials**: ExpertFlyer in system keyring (`python3 -m rtw login expertflyer`), SerpAPI via env var (`export SERPAPI_API_KEY=...`). Run `/rtw-init` to set up both.
 - **State files**: Search results saved to `~/.rtw/last_search.json`. Trip planning state in `.claude/rtw-state.local.md`.
 - **Rules engine**: Each rule is a separate file in `rtw/rules/`. Rules return `RuleResult` with severity. Never invent fare rules — read `docs/01-fare-rules.md` for authoritative source.
 - **Continent overrides**: Some airports have non-obvious continent assignments (e.g., Egypt = EU_ME, Guam = Asia). See `rtw/continents.py`.
@@ -127,10 +127,13 @@ python3 -m rtw verify                  # Verify D-class availability (needs Expe
 
 | Command | Description | Model |
 |---------|-------------|-------|
+| `/rtw-init` | First-time credential & environment setup | sonnet |
 | `/rtw-verify` | Run tests + lint check | haiku |
 | `/rtw-status` | Project status dashboard | haiku |
-| `/rtw-setup` | First-time environment setup | sonnet |
+| `/rtw-setup` | Install dependencies & run smoke test | sonnet |
 | `/rtw-help` | Command inventory + domain primer | haiku |
+
+**First time?** Run `/rtw-init` to configure SerpAPI + ExpertFlyer credentials and verify the environment.
 
 **Typical workflow**: `/rtw-plan` → `/rtw-search` → `/rtw-verify` (D-class) → `/rtw-analyze` → `/rtw-booking`
 
