@@ -8,9 +8,13 @@ import difflib
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Optional
 
 import typer
+
+if TYPE_CHECKING:
+    from rtw.search.models import ScoredCandidate
+    from rtw.verify.models import VerifyOption, VerifyResult
 import yaml
 from pydantic import ValidationError
 
@@ -44,9 +48,16 @@ cache_app = typer.Typer(
     no_args_is_help=True,
 )
 
+login_app = typer.Typer(
+    name="login",
+    help="Manage service logins.",
+    no_args_is_help=True,
+)
+
 app.add_typer(scrape_app, name="scrape")
 app.add_typer(config_app, name="config")
 app.add_typer(cache_app, name="cache")
+app.add_typer(login_app, name="login")
 
 
 # ---------------------------------------------------------------------------
@@ -713,6 +724,482 @@ def cache_clear() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Login commands
+# ---------------------------------------------------------------------------
+
+
+@login_app.command(name="expertflyer")
+def login_expertflyer(
+    verbose: VerboseFlag = False,
+    quiet: QuietFlag = False,
+) -> None:
+    """Store ExpertFlyer credentials for D-class availability checks.
+
+    Prompts for email and password, stores them in the system keyring,
+    then tests the login by connecting to ExpertFlyer.
+    """
+    _setup_logging(verbose, quiet)
+
+    try:
+        import keyring
+    except ImportError:
+        _error_panel("keyring library not available. Install with: pip install keyring")
+        raise typer.Exit(code=1)
+
+    # Check existing credentials
+    existing = keyring.get_password("expertflyer.com", "username")
+    if existing and not quiet:
+        typer.echo(f"Existing credentials found for: {existing}")
+        if not typer.confirm("Replace with new credentials?"):
+            typer.echo("Keeping existing credentials.")
+            return
+
+    # Prompt for credentials
+    username = typer.prompt("ExpertFlyer email")
+    password = typer.prompt("ExpertFlyer password", hide_input=True)
+
+    keyring.set_password("expertflyer.com", "username", username)
+    keyring.set_password("expertflyer.com", "password", password)
+    typer.echo("Credentials saved to system keyring.")
+
+    # Test login
+    if not quiet:
+        typer.echo("Testing login...")
+    try:
+        from rtw.scraper.expertflyer import ExpertFlyerScraper
+
+        with ExpertFlyerScraper() as scraper:
+            scraper._ensure_logged_in()
+            typer.echo("Login test successful.")
+    except Exception as exc:
+        typer.echo(f"Warning: login test failed ({exc}). Credentials saved anyway.", err=True)
+
+
+@login_app.command(name="status")
+def login_status(
+    json: JsonFlag = False,
+) -> None:
+    """Check ExpertFlyer credential status."""
+    import json as json_mod
+
+    has_creds = False
+    username = None
+    try:
+        import keyring
+
+        username = keyring.get_password("expertflyer.com", "username")
+        password = keyring.get_password("expertflyer.com", "password")
+        has_creds = bool(username and password)
+    except ImportError:
+        pass
+
+    if json:
+        data = {
+            "has_credentials": has_creds,
+            "username": username,
+        }
+        typer.echo(json_mod.dumps(data, indent=2))
+        return
+
+    if has_creds:
+        typer.echo(f"ExpertFlyer credentials: configured ({username})")
+    else:
+        typer.echo("ExpertFlyer credentials: not configured")
+        typer.echo("Run `rtw login expertflyer` to set up.")
+
+
+@login_app.command(name="clear")
+def login_clear() -> None:
+    """Clear saved ExpertFlyer credentials."""
+    try:
+        import keyring
+
+        keyring.delete_password("expertflyer.com", "username")
+        keyring.delete_password("expertflyer.com", "password")
+        typer.echo("ExpertFlyer credentials cleared from keyring.")
+    except ImportError:
+        _error_panel("keyring library not available.")
+        raise typer.Exit(code=1)
+    except Exception:
+        typer.echo("No credentials to clear.")
+
+
+# ---------------------------------------------------------------------------
+# Verify command
+# ---------------------------------------------------------------------------
+
+
+def _scored_to_verify_option(
+    scored: "ScoredCandidate", option_id: int
+) -> "VerifyOption":
+    """Convert a ScoredCandidate to a VerifyOption for D-class checking."""
+    from rtw.verify.models import SegmentVerification, VerifyOption
+
+    segments = []
+    for i, seg in enumerate(scored.candidate.itinerary.segments):
+        seg_type = "SURFACE" if seg.is_surface else "FLOWN"
+        segments.append(
+            SegmentVerification(
+                index=i,
+                segment_type=seg_type,
+                origin=seg.from_airport,
+                destination=seg.to_airport,
+                carrier=seg.carrier,
+                flight_number=seg.flight,
+                target_date=seg.date,
+            )
+        )
+    return VerifyOption(option_id=option_id, segments=segments)
+
+
+def _display_verify_result(result: "VerifyResult", quiet: bool = False) -> None:
+    """Display verification result in rich or plain format."""
+    from rtw.verify.models import DClassStatus
+
+    try:
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console(stderr=True)
+        table = Table(
+            title=f"Option {result.option_id} — D-Class Verification",
+            show_lines=False,
+        )
+        table.add_column("#", justify="right", style="dim")
+        table.add_column("Route", style="bold")
+        table.add_column("Carrier")
+        table.add_column("Date")
+        table.add_column("D-Class", justify="center")
+        table.add_column("Seats", justify="center")
+
+        for seg in result.segments:
+            route = f"{seg.origin}→{seg.destination}"
+            carrier = seg.carrier or "—"
+            date_str = str(seg.target_date) if seg.target_date else "—"
+
+            if seg.segment_type == "SURFACE":
+                table.add_row(
+                    str(seg.index + 1), route, "SURFACE", "—", "—", "—",
+                    style="dim",
+                )
+                continue
+
+            if seg.dclass is None:
+                table.add_row(
+                    str(seg.index + 1), route, carrier, date_str, "?", "?",
+                )
+                continue
+
+            status = seg.dclass.status
+            display = seg.dclass.display_code
+            seats = str(seg.dclass.seats) if status in (
+                DClassStatus.AVAILABLE, DClassStatus.NOT_AVAILABLE
+            ) else "—"
+
+            if status == DClassStatus.AVAILABLE:
+                style = "green"
+            elif status == DClassStatus.NOT_AVAILABLE:
+                style = "red"
+            elif status == DClassStatus.ERROR:
+                style = "yellow"
+            else:
+                style = "dim"
+
+            # TIGHT badge: ≤2 flights with D availability
+            tight = ""
+            if seg.dclass.flights and seg.dclass.available_count <= 2:
+                tight = " [red bold]TIGHT[/red bold]"
+
+            table.add_row(
+                str(seg.index + 1), route, carrier, date_str,
+                f"[{style}]{display}[/{style}]{tight}",
+                f"[{style}]{seats}[/{style}]",
+            )
+
+            # Per-flight sub-rows: show available flights (D>0)
+            if seg.dclass.flights and not quiet:
+                avail = seg.dclass.available_flights
+                for flt in avail:
+                    flt_label = flt.flight_number or f"{flt.carrier or carrier}?"
+                    flt_dep = flt.depart_time or ""
+                    flt_aircraft = f" ({flt.aircraft})" if flt.aircraft else ""
+                    stops_str = f" +{flt.stops}" if flt.stops else ""
+                    table.add_row(
+                        "",
+                        f"  [dim]{flt_label}{stops_str}{flt_aircraft}[/dim]",
+                        "",
+                        f"  [dim]{flt_dep}[/dim]",
+                        f"[green]D{flt.seats}[/green]",
+                        "",
+                    )
+                # Show count of D0 flights
+                d0_count = seg.dclass.flight_count - seg.dclass.available_count
+                if d0_count > 0:
+                    table.add_row(
+                        "", f"  [dim]({d0_count} more at D0)[/dim]",
+                        "", "", "", "",
+                    )
+
+            # Alternate date hint for unavailable segments
+            if (
+                status == DClassStatus.NOT_AVAILABLE
+                and seg.dclass.best_alternate
+            ):
+                alt = seg.dclass.best_alternate
+                table.add_row(
+                    "", "", "", f"  [dim]Try {alt.date}[/dim]",
+                    f"[cyan]D{alt.seats}[/cyan]",
+                    f"[cyan]{alt.seats}[/cyan]",
+                )
+
+        console.print(table)
+
+        # Summary line
+        if result.fully_bookable:
+            console.print(
+                f"[green bold]All {result.confirmed}/{result.total_flown} "
+                f"flown segments have D-class availability.[/green bold]"
+            )
+        else:
+            console.print(
+                f"[yellow]{result.confirmed}/{result.total_flown} flown segments "
+                f"confirmed ({result.percentage:.0f}%).[/yellow]"
+            )
+
+    except ImportError:
+        # Plain text fallback
+        typer.echo(f"Option {result.option_id} — D-Class Verification", err=True)
+        for seg in result.segments:
+            route = f"{seg.origin}-{seg.destination}"
+            if seg.segment_type == "SURFACE":
+                typer.echo(f"  {seg.index + 1}. {route}: SURFACE", err=True)
+                continue
+            if seg.dclass:
+                tight = " TIGHT" if seg.dclass.flights and seg.dclass.available_count <= 2 else ""
+                typer.echo(
+                    f"  {seg.index + 1}. {route} {seg.carrier or '??'}: "
+                    f"{seg.dclass.display_code} ({seg.dclass.seats} seats){tight}",
+                    err=True,
+                )
+                # Per-flight sub-rows
+                if seg.dclass.flights and not quiet:
+                    for flt in seg.dclass.available_flights:
+                        flt_label = flt.flight_number or f"{flt.carrier or seg.carrier or '??'}?"
+                        flt_dep = flt.depart_time or ""
+                        stops_str = f" +{flt.stops}" if flt.stops else ""
+                        typer.echo(
+                            f"       {flt_label}{stops_str} {flt_dep} D{flt.seats}",
+                            err=True,
+                        )
+                    d0_count = seg.dclass.flight_count - seg.dclass.available_count
+                    if d0_count > 0:
+                        typer.echo(f"       ({d0_count} more at D0)", err=True)
+                if (
+                    seg.dclass.status == DClassStatus.NOT_AVAILABLE
+                    and seg.dclass.best_alternate
+                ):
+                    alt = seg.dclass.best_alternate
+                    typer.echo(
+                        f"       Try {alt.date}: D{alt.seats}",
+                        err=True,
+                    )
+            else:
+                typer.echo(f"  {seg.index + 1}. {route}: not checked", err=True)
+
+        pct = f"{result.percentage:.0f}%" if result.total_flown else "n/a"
+        typer.echo(
+            f"  Result: {result.confirmed}/{result.total_flown} confirmed ({pct})",
+            err=True,
+        )
+
+
+def _display_verify_summary(results: list) -> None:
+    """Show a summary panel after batch verify."""
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+
+        console = Console(stderr=True)
+        lines = Text()
+
+        for vr in results:
+            label = f"Option {vr.option_id}: {vr.confirmed}/{vr.total_flown} D-class"
+            if vr.fully_bookable:
+                lines.append(f"  {label} ", style="green bold")
+                lines.append("(fully bookable)\n", style="green")
+            elif vr.percentage >= 50:
+                lines.append(f"  {label} ", style="yellow")
+                lines.append(f"({vr.percentage:.0f}%)\n", style="yellow")
+            else:
+                lines.append(f"  {label} ", style="red")
+                lines.append(f"({vr.percentage:.0f}%)\n", style="red")
+
+        console.print(Panel(lines, title="D-Class Summary", border_style="blue"))
+
+    except ImportError:
+        typer.echo("--- D-Class Summary ---", err=True)
+        for vr in results:
+            status = "BOOKABLE" if vr.fully_bookable else f"{vr.percentage:.0f}%"
+            typer.echo(
+                f"  Option {vr.option_id}: {vr.confirmed}/{vr.total_flown} ({status})",
+                err=True,
+            )
+
+
+@app.command()
+def verify(
+    option_ids: Annotated[
+        Optional[list[int]], typer.Argument(help="Option IDs to verify (1-based). Omit for top 3.")
+    ] = None,
+    booking_class: Annotated[str, typer.Option("--class", "-c", help="Booking class")] = "D",
+    no_cache: Annotated[bool, typer.Option("--no-cache", help="Skip cache")] = False,
+    json: JsonFlag = False,
+    plain: PlainFlag = False,
+    verbose: VerboseFlag = False,
+    quiet: QuietFlag = False,
+) -> None:
+    """Verify D-class availability for saved search results.
+
+    Uses ExpertFlyer to check booking class availability on each flown
+    segment. Requires a prior `rtw search` and `rtw login expertflyer`.
+    """
+    _setup_logging(verbose, quiet)
+
+    try:
+        from rtw.verify.state import SearchState
+        from rtw.scraper.expertflyer import ExpertFlyerScraper, _get_credentials
+        from rtw.scraper.cache import ScrapeCache
+        from rtw.verify.verifier import DClassVerifier
+        import json as json_mod
+
+        # Load last search result
+        state = SearchState()
+        search_result = state.load()
+        if search_result is None:
+            _error_panel(
+                "No saved search results found.\n\n"
+                "Run `rtw search` first, then `rtw verify`."
+            )
+            raise typer.Exit(code=1)
+
+        age = state.state_age_minutes()
+        if age and age > 60 and not quiet:
+            typer.echo(
+                f"Warning: search results are {age:.0f} minutes old. "
+                "Consider re-running `rtw search`.",
+                err=True,
+            )
+
+        # Determine which options to verify
+        if option_ids is None:
+            ids = list(range(1, min(4, len(search_result.options) + 1)))
+        else:
+            ids = option_ids
+
+        # Validate IDs
+        for oid in ids:
+            if oid < 1 or oid > len(search_result.options):
+                _error_panel(
+                    f"Option {oid} does not exist. "
+                    f"Available: 1-{len(search_result.options)}"
+                )
+                raise typer.Exit(code=2)
+
+        # Check credentials
+        if _get_credentials() is None:
+            _error_panel(
+                "No ExpertFlyer credentials found.\n\n"
+                "Run `rtw login expertflyer` to set up."
+            )
+            raise typer.Exit(code=1)
+
+        # Build verifier with context-managed scraper
+        with ExpertFlyerScraper() as scraper:
+            verifier = DClassVerifier(
+                scraper=scraper,
+                cache=ScrapeCache(),
+                booking_class=booking_class,
+            )
+
+            # Convert and verify with Rich progress
+            results = []
+            use_rich_progress = not json and not quiet and not plain
+
+            for oid in ids:
+                scored = search_result.options[oid - 1]
+                option = _scored_to_verify_option(scored, oid)
+                route_label = (
+                    f"{option.segments[0].origin}→...→{option.segments[-1].destination}"
+                    if option.segments else "?"
+                )
+
+                if use_rich_progress:
+                    try:
+                        from rich.console import Console
+                        from rich.status import Status
+
+                        console = Console(stderr=True)
+                        status = Status(
+                            f"Option {oid}: checking {route_label}...",
+                            console=console,
+                            spinner="dots",
+                        )
+                        status.start()
+
+                        def _progress(current, total, seg, _s=status, _oid=oid):
+                            label = seg.dclass.display_code if seg.dclass else "..."
+                            _s.update(
+                                f"Option {_oid}: {seg.origin}→{seg.destination} "
+                                f"[{current}/{total}] {label}"
+                            )
+
+                        vr = verifier.verify_option(
+                            option, progress_cb=_progress, no_cache=no_cache
+                        )
+                        status.stop()
+                    except ImportError:
+                        # Fall back to plain echo
+                        use_rich_progress = False
+                        vr = verifier.verify_option(option, no_cache=no_cache)
+                elif not quiet and not json:
+                    typer.echo(f"Verifying option {oid} ({route_label})...", err=True)
+
+                    def _progress(current, total, seg):
+                        status = seg.dclass.display_code if seg.dclass else "..."
+                        typer.echo(
+                            f"  [{current}/{total}] {seg.origin}→{seg.destination}: {status}",
+                            err=True,
+                        )
+
+                    vr = verifier.verify_option(
+                        option, progress_cb=_progress, no_cache=no_cache
+                    )
+                else:
+                    vr = verifier.verify_option(option, no_cache=no_cache)
+
+                results.append(vr)
+
+                if not json and not quiet:
+                    _display_verify_result(vr)
+                    typer.echo("", err=True)
+
+            # Summary panel for batch verify
+            if not json and not quiet and len(results) > 1:
+                _display_verify_summary(results)
+
+        if json:
+            data = [r.model_dump(mode="json") for r in results]
+            typer.echo(json_mod.dumps(data, indent=2))
+
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _error_panel(str(exc))
+        raise typer.Exit(code=2)
+
+
+# ---------------------------------------------------------------------------
 # T049: Search command
 # ---------------------------------------------------------------------------
 
@@ -730,6 +1217,7 @@ def search(
     skip_availability: Annotated[bool, typer.Option("--skip-availability", help="Skip availability check")] = False,
     nonstop: Annotated[bool, typer.Option("--nonstop", help="Show only nonstop flights")] = False,
     backend: Annotated[str, typer.Option("--backend", "-b", help="Flight search backend: auto, serpapi, fast-flights, playwright")] = "auto",
+    verify_dclass: Annotated[bool, typer.Option("--verify-dclass", help="Auto-verify D-class on top results via ExpertFlyer")] = False,
     export: Annotated[int, typer.Option("--export", "-e", help="Export option N as YAML")] = 0,
     json: JsonFlag = False,
     plain: PlainFlag = False,
@@ -874,6 +1362,41 @@ def search(
             options=ranked,
             base_fare_usd=base_fare_usd,
         )
+
+        # Save search state for `rtw verify`
+        from rtw.verify.state import SearchState
+        SearchState().save(result)
+
+        # Phase 6.5: Optional D-class verification
+        if verify_dclass:
+            from rtw.scraper.expertflyer import ExpertFlyerScraper, _get_credentials
+
+            if _get_credentials() is None:
+                if not quiet:
+                    typer.echo(
+                        "Skipping D-class verification: no ExpertFlyer credentials. "
+                        "Run `rtw login expertflyer` first.",
+                        err=True,
+                    )
+            else:
+                from rtw.verify.verifier import DClassVerifier
+
+                verify_count = min(3, len(ranked))
+                if not quiet and not json:
+                    typer.echo(
+                        f"\nVerifying D-class for top {verify_count} options...",
+                        err=True,
+                    )
+                with ExpertFlyerScraper() as ef_scraper:
+                    dclass_verifier = DClassVerifier(
+                        scraper=ef_scraper,
+                        cache=ScrapeCache(),
+                    )
+                    for i in range(verify_count):
+                        option = _scored_to_verify_option(ranked[i], i + 1)
+                        vr = dclass_verifier.verify_option(option)
+                        if not quiet and not json:
+                            _display_verify_result(vr, quiet=quiet)
 
         if json:
             typer.echo(format_search_json(result))
