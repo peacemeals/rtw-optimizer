@@ -1440,6 +1440,242 @@ def search(
 
 
 # ---------------------------------------------------------------------------
+# Fares command
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def fares(
+    origins: Annotated[
+        str,
+        typer.Option(
+            "--origins",
+            "-o",
+            help="Comma-separated IATA origin codes (e.g. OSL,NRT,BOM,CAI).",
+        ),
+    ],
+    carrier: Annotated[
+        str,
+        typer.Option(
+            "--carrier",
+            "-a",
+            help="Filing carrier (oneworld member, e.g. AA, QR).",
+        ),
+    ] = "AA",
+    currency: Annotated[
+        str,
+        typer.Option("--currency", help="Currency for fare display."),
+    ] = "USD",
+    fare_type: Annotated[
+        Optional[str],
+        typer.Option(
+            "--type",
+            "-t",
+            help="Filter to fare type: DONE, AONE, LONE, or ALL.",
+        ),
+    ] = None,
+    json: JsonFlag = False,
+    plain: PlainFlag = False,
+    verbose: VerboseFlag = False,
+    quiet: QuietFlag = False,
+) -> None:
+    """Compare oneworld Explorer RTW fare prices across origin cities.
+
+    Scrapes ExpertFlyer Fare Information to find the cheapest origin
+    point for DONE (business), AONE (first), and LONE (economy) fares.
+
+    For RTW fares, the origin and destination are the same city.
+    Results are ranked by price to help find the cheapest starting point.
+
+    Examples:
+
+        rtw fares --origins OSL,NRT,BOM,CAI --carrier AA
+
+        rtw fares --origins OSL,NRT --carrier QR --type DONE
+
+        rtw fares --origins OSL,NRT,BOM,CAI -a AA --json
+    """
+    _setup_logging(verbose, quiet)
+
+    origin_list = [o.strip().upper() for o in origins.split(",") if o.strip()]
+    if not origin_list:
+        _error_panel("No origins specified. Example: --origins OSL,NRT,BOM,CAI")
+        raise typer.Exit(code=2)
+
+    carrier = carrier.upper()
+
+    try:
+        from rtw.scraper.expertflyer import ExpertFlyerScraper, _get_credentials
+        from rtw.scraper.expertflyer_fares import ExpertFlyerFareScraper
+        import json as json_mod
+
+        # Check credentials
+        if _get_credentials() is None:
+            _error_panel(
+                "No ExpertFlyer credentials found.\n\n"
+                "Run `rtw login expertflyer` to set up."
+            )
+            raise typer.Exit(code=1)
+
+        with ExpertFlyerScraper() as scraper:
+            fare_scraper = ExpertFlyerFareScraper(scraper)
+
+            def _progress(current, total, origin, result):
+                if quiet:
+                    return
+                if result.error:
+                    typer.echo(
+                        f"  [{current}/{total}] {origin}: ERROR — {result.error}",
+                        err=True,
+                    )
+                else:
+                    rtw_count = len(result.rtw_fares)
+                    typer.echo(
+                        f"  [{current}/{total}] {origin}: {rtw_count} RTW fares found",
+                        err=True,
+                    )
+
+            if not quiet and not json:
+                typer.echo(
+                    f"Searching {carrier} fares for {len(origin_list)} origins...",
+                    err=True,
+                )
+
+            comparison = fare_scraper.search_multiple_origins(
+                origins=origin_list,
+                carrier=carrier,
+                currency=currency,
+                progress_cb=_progress if not json else None,
+            )
+
+        # Output
+        if json:
+            data = comparison.model_dump(mode="json")
+            typer.echo(json_mod.dumps(data, indent=2))
+        else:
+            _display_fare_comparison(comparison, fare_type, quiet)
+
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _error_panel(str(exc))
+        raise typer.Exit(code=2)
+
+
+def _display_fare_comparison(comparison, fare_type: Optional[str], quiet: bool) -> None:
+    """Display fare comparison results."""
+    from rtw.scraper.expertflyer_fares import FareComparisonResult
+
+    # Determine which fare families to show
+    if fare_type:
+        ft = fare_type.upper()
+        if ft == "ALL":
+            families = ["LONE", "DONE", "AONE"]
+        elif ft in ("DONE", "AONE", "LONE"):
+            families = [ft]
+        else:
+            families = ["DONE"]
+    else:
+        families = ["LONE", "DONE", "AONE"]
+
+    # Continent counts to show
+    counts = [3, 4, 5, 6]
+
+    try:
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+
+        for family in families:
+            if family == "DONE":
+                title = "Business Class (DONE) Fares"
+            elif family == "AONE":
+                title = "First Class (AONE) Fares"
+            else:
+                title = "Economy Class (LONE) Fares"
+
+            table = Table(
+                title=f"{title} — {comparison.carrier} ({comparison.currency})",
+                show_lines=False,
+            )
+            table.add_column("Origin", style="bold")
+
+            for n in counts:
+                table.add_column(f"{family}{n}", justify="right")
+
+            for origin_result in comparison.origins:
+                if origin_result.error:
+                    table.add_row(
+                        origin_result.origin,
+                        *[f"[red]ERR[/red]" for _ in counts],
+                    )
+                    continue
+
+                cells = []
+                for n in counts:
+                    fare_basis = f"{family}{n}"
+                    fare = origin_result.get_fare(fare_basis)
+                    if fare:
+                        cells.append(f"${fare.fare_usd:,.0f}")
+                    else:
+                        cells.append("[dim]—[/dim]")
+
+                table.add_row(origin_result.origin, *cells)
+
+            console.print(table)
+
+            # Show cheapest summary
+            if not quiet:
+                for n in counts:
+                    fare_basis = f"{family}{n}"
+                    ranking = comparison.ranking_for(fare_basis)
+                    if ranking:
+                        best_origin, best_price = ranking[0]
+                        console.print(
+                            f"  Cheapest {fare_basis}: "
+                            f"[green bold]{best_origin}[/green bold] "
+                            f"(${best_price:,.0f})"
+                        )
+
+                console.print()
+
+    except ImportError:
+        # Plain text fallback
+        for family in families:
+            typer.echo(f"\n{family} Fares — {comparison.carrier} ({comparison.currency}):")
+            header = f"  {'Origin':<8}"
+            for n in counts:
+                header += f"  {family}{n:>10}"
+            typer.echo(header)
+            typer.echo("  " + "-" * (8 + 12 * len(counts)))
+
+            for origin_result in comparison.origins:
+                line = f"  {origin_result.origin:<8}"
+                if origin_result.error:
+                    line += f"  ERROR: {origin_result.error}"
+                else:
+                    for n in counts:
+                        fare = origin_result.get_fare(f"{family}{n}")
+                        if fare:
+                            line += f"  ${fare.fare_usd:>9,.0f}"
+                        else:
+                            line += f"  {'—':>10}"
+                typer.echo(line)
+
+            # Cheapest summary
+            if not quiet:
+                for n in counts:
+                    fare_basis = f"{family}{n}"
+                    ranking = comparison.ranking_for(fare_basis)
+                    if ranking:
+                        typer.echo(
+                            f"  Cheapest {fare_basis}: {ranking[0][0]} "
+                            f"(${ranking[0][1]:,.0f})"
+                        )
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
