@@ -1061,6 +1061,7 @@ def verify(
     ] = None,
     booking_class: Annotated[Optional[str], typer.Option("--class", "-c", help="Override booking class (default: auto per carrier, AA=H, others=D)")] = None,
     no_cache: Annotated[bool, typer.Option("--no-cache", help="Skip cache")] = False,
+    date_flex: Annotated[bool, typer.Option("--flex", help="Check ±3 days for alternate availability when target date is sold out")] = False,
     json: JsonFlag = False,
     plain: PlainFlag = False,
     verbose: VerboseFlag = False,
@@ -1070,6 +1071,10 @@ def verify(
 
     Uses ExpertFlyer to check booking class availability on each flown
     segment. Requires a prior `rtw search` and `rtw login expertflyer`.
+
+    With --flex, segments with no availability on the target date will
+    also be checked on ±1, ±2, and ±3 adjacent days. The best alternate
+    date is shown in the results.
     """
     _setup_logging(verbose, quiet)
 
@@ -1127,6 +1132,7 @@ def verify(
                 scraper=scraper,
                 cache=ScrapeCache(),
                 booking_class=booking_class,
+                date_flex=date_flex,
             )
             # Note: booking_class=None means auto per-carrier (AA=H, others=D)
 
@@ -1445,6 +1451,237 @@ def search(
             raise typer.Exit(code=2)
         _error_panel(str(exc))
         raise typer.Exit(code=2)
+
+
+# ---------------------------------------------------------------------------
+# Fares command
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def fares(
+    origins: Annotated[
+        str,
+        typer.Option(
+            "--origins",
+            "-o",
+            help="Comma-separated IATA origin codes (e.g. OSL,NRT,BOM,CAI).",
+        ),
+    ],
+    carriers: Annotated[
+        str,
+        typer.Option(
+            "--carriers",
+            "-a",
+            help="Comma-separated carrier codes (default: AA,AS,QR,BA,FJ,RJ).",
+        ),
+    ] = "",
+    currency: Annotated[
+        str,
+        typer.Option("--currency", help="Currency for fare display."),
+    ] = "USD",
+    fare_type: Annotated[
+        Optional[str],
+        typer.Option(
+            "--type",
+            "-t",
+            help="Filter to fare type: DONE, AONE, LONE, or ALL.",
+        ),
+    ] = None,
+    json: JsonFlag = False,
+    plain: PlainFlag = False,
+    verbose: VerboseFlag = False,
+    quiet: QuietFlag = False,
+) -> None:
+    """Compare oneworld Explorer RTW fare prices across origin cities.
+
+    Scrapes ExpertFlyer Fare Information to find the cheapest origin
+    point for DONE (business), AONE (first), and LONE (economy) fares.
+
+    Checks multiple filing carriers per origin (default: AA, AS, QR, BA, FJ, RJ).
+    For RTW fares, the origin and destination are the same city.
+    Results show the cheapest fare across all carriers for each fare basis.
+
+    Examples:
+
+        rtw fares --origins OSL,NRT,BOM,CAI
+
+        rtw fares --origins OSL,NRT --carriers AA,QR --type DONE
+
+        rtw fares --origins OSL,NRT,BOM,CAI --json
+    """
+    _setup_logging(verbose, quiet)
+
+    origin_list = [o.strip().upper() for o in origins.split(",") if o.strip()]
+    if not origin_list:
+        _error_panel("No origins specified. Example: --origins OSL,NRT,BOM,CAI")
+        raise typer.Exit(code=2)
+
+    from rtw.scraper.expertflyer_fares import DEFAULT_RTW_CARRIERS
+
+    carrier_list = (
+        [c.strip().upper() for c in carriers.split(",") if c.strip()]
+        if carriers
+        else list(DEFAULT_RTW_CARRIERS)
+    )
+
+    try:
+        from rtw.scraper.expertflyer import ExpertFlyerScraper, _get_credentials
+        from rtw.scraper.expertflyer_fares import ExpertFlyerFareScraper
+        import json as json_mod
+
+        if _get_credentials() is None:
+            _error_panel(
+                "No ExpertFlyer credentials found.\n\n"
+                "Run `rtw login expertflyer` to set up."
+            )
+            raise typer.Exit(code=1)
+
+        with ExpertFlyerScraper() as scraper:
+            fare_scraper = ExpertFlyerFareScraper(scraper)
+
+            def _progress(current, total, origin, result):
+                if quiet:
+                    return
+                rtw_count = len(result.rtw_fares)
+                err_count = len(result.errors)
+                carrier_str = ",".join(result.carriers_queried)
+                msg = f"  [{current}/{total}] {origin} ({carrier_str}): {rtw_count} RTW fares"
+                if err_count:
+                    msg += f" ({err_count} carrier errors)"
+                typer.echo(msg, err=True)
+
+            if not quiet and not json:
+                typer.echo(
+                    f"Searching fares for {len(origin_list)} origins "
+                    f"x {len(carrier_list)} carriers ({','.join(carrier_list)})...",
+                    err=True,
+                )
+
+            comparison = fare_scraper.search_multiple_origins(
+                origins=origin_list,
+                carriers=carrier_list,
+                currency=currency,
+                progress_cb=_progress if not json else None,
+            )
+
+        if json:
+            data = comparison.model_dump(mode="json")
+            typer.echo(json_mod.dumps(data, indent=2))
+        else:
+            _display_fare_comparison(comparison, fare_type, quiet)
+
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _error_panel(str(exc))
+        raise typer.Exit(code=2)
+
+
+def _display_fare_comparison(comparison, fare_type: Optional[str], quiet: bool) -> None:
+    """Display fare comparison results with cheapest-origin highlights."""
+    # Determine which fare families to show
+    if fare_type:
+        ft = fare_type.upper()
+        if ft == "ALL":
+            families = ["LONE", "DONE", "AONE"]
+        elif ft in ("DONE", "AONE", "LONE"):
+            families = [ft]
+        else:
+            families = ["DONE"]
+    else:
+        families = ["LONE", "DONE", "AONE"]
+
+    counts = [3, 4, 5, 6]
+    carriers_str = ",".join(comparison.carriers)
+
+    try:
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+
+        for family in families:
+            if family == "DONE":
+                title = "Business Class (DONE) Fares"
+            elif family == "AONE":
+                title = "First Class (AONE) Fares"
+            else:
+                title = "Economy Class (LONE) Fares"
+
+            table = Table(
+                title=f"{title} — {carriers_str} ({comparison.currency})",
+                show_lines=False,
+            )
+            table.add_column("Origin", style="bold")
+            for n in counts:
+                table.add_column(f"{family}{n}", justify="right")
+
+            # Find cheapest per column for highlighting
+            cheapest_per_col = {}
+            for n in counts:
+                ranking = comparison.ranking_for(f"{family}{n}")
+                if ranking:
+                    cheapest_per_col[n] = ranking[0][1]
+
+            for origin_result in comparison.origins:
+                cells = []
+                for n in counts:
+                    fare_basis = f"{family}{n}"
+                    fare = origin_result.get_fare(fare_basis)
+                    if fare:
+                        price_str = f"${fare.fare_usd:,.0f}"
+                        if n in cheapest_per_col and fare.fare_usd <= cheapest_per_col[n]:
+                            cells.append(f"[green bold]{price_str}[/green bold]")
+                        else:
+                            cells.append(price_str)
+                    else:
+                        cells.append("[dim]—[/dim]")
+                table.add_row(origin_result.origin, *cells)
+
+            console.print(table)
+
+            if not quiet:
+                for n in counts:
+                    fare_basis = f"{family}{n}"
+                    ranking = comparison.ranking_for(fare_basis)
+                    if ranking:
+                        best_origin, best_price, best_carrier = ranking[0]
+                        console.print(
+                            f"  Cheapest {fare_basis}: "
+                            f"[green bold]{best_origin}[/green bold] "
+                            f"(${best_price:,.0f} on {best_carrier})"
+                        )
+                console.print()
+
+    except ImportError:
+        for family in families:
+            typer.echo(f"\n{family} Fares — {carriers_str} ({comparison.currency}):")
+            header = f"  {'Origin':<8}"
+            for n in counts:
+                header += f"  {family}{n:>10}"
+            typer.echo(header)
+            typer.echo("  " + "-" * (8 + 12 * len(counts)))
+
+            for origin_result in comparison.origins:
+                line = f"  {origin_result.origin:<8}"
+                for n in counts:
+                    fare = origin_result.get_fare(f"{family}{n}")
+                    if fare:
+                        line += f"  ${fare.fare_usd:>9,.0f}"
+                    else:
+                        line += f"  {'—':>10}"
+                typer.echo(line)
+
+            if not quiet:
+                for n in counts:
+                    fare_basis = f"{family}{n}"
+                    ranking = comparison.ranking_for(fare_basis)
+                    if ranking:
+                        typer.echo(
+                            f"  Cheapest {fare_basis}: {ranking[0][0]} "
+                            f"(${ranking[0][1]:,.0f} on {ranking[0][2]})"
+                        )
 
 
 # ---------------------------------------------------------------------------
