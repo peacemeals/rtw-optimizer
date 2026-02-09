@@ -14,7 +14,7 @@ from rtw.models import (
     TicketType,
 )
 from rtw.scraper.cache import ScrapeCache
-from rtw.scraper.google_flights import FlightPrice
+from rtw.scraper.google_flights import FlightPrice, SearchBackend
 from rtw.search.availability import AvailabilityChecker
 from rtw.search.models import (
     AvailabilityStatus,
@@ -183,3 +183,113 @@ class TestDateAssignment:
         query = _make_query()
         dates = checker._assign_dates(cand, query)
         assert dates[1] is None
+
+
+class TestAvailabilityCascade:
+    @patch("rtw.scraper.serpapi_flights.serpapi_available", return_value=True)
+    @patch("rtw.scraper.serpapi_flights.search_serpapi")
+    def test_auto_mode_tries_serpapi_first(self, mock_serpapi, mock_avail, tmp_cache):
+        mock_serpapi.return_value = FlightPrice(
+            origin="AAA", dest="BBB", carrier="QR", price_usd=2000,
+            cabin="business", source="serpapi",
+        )
+        checker = AvailabilityChecker(cache=tmp_cache, backend=SearchBackend.AUTO)
+        result = checker._search_with_cascade("AAA", "BBB", FUTURE, "business")
+        assert result is not None
+        assert result.source == "serpapi"
+        mock_serpapi.assert_called_once()
+
+    @patch("rtw.scraper.google_flights.search_fast_flights")
+    @patch("rtw.scraper.serpapi_flights.serpapi_available", return_value=True)
+    @patch("rtw.scraper.serpapi_flights.search_serpapi", return_value=None)
+    def test_auto_mode_falls_back_on_serpapi_none(self, mock_serpapi, mock_avail, mock_ff, tmp_cache):
+        mock_ff.return_value = FlightPrice(
+            origin="AAA", dest="BBB", carrier="AA", price_usd=1500,
+            cabin="business", source="fast_flights",
+        )
+        checker = AvailabilityChecker(cache=tmp_cache, backend=SearchBackend.AUTO)
+        result = checker._search_with_cascade("AAA", "BBB", FUTURE, "business")
+        assert result is not None
+        assert result.source == "fast_flights"
+
+    @patch("rtw.scraper.google_flights.search_fast_flights")
+    @patch("rtw.scraper.serpapi_flights.serpapi_available", return_value=True)
+    @patch("rtw.scraper.serpapi_flights.search_serpapi", side_effect=Exception("API down"))
+    def test_auto_mode_falls_back_on_serpapi_exception(self, mock_serpapi, mock_avail, mock_ff, tmp_cache):
+        mock_ff.return_value = FlightPrice(
+            origin="AAA", dest="BBB", carrier="AA", price_usd=1500,
+            cabin="business", source="fast_flights",
+        )
+        checker = AvailabilityChecker(cache=tmp_cache, backend=SearchBackend.AUTO)
+        result = checker._search_with_cascade("AAA", "BBB", FUTURE, "business")
+        assert result is not None
+        assert result.source == "fast_flights"
+
+    @patch("rtw.scraper.serpapi_flights.serpapi_available", return_value=False)
+    @patch("rtw.scraper.google_flights.search_fast_flights")
+    def test_auto_mode_skips_serpapi_without_key(self, mock_ff, mock_avail, tmp_cache):
+        mock_ff.return_value = FlightPrice(
+            origin="AAA", dest="BBB", carrier="AA", price_usd=1500,
+            cabin="business", source="fast_flights",
+        )
+        checker = AvailabilityChecker(cache=tmp_cache, backend=SearchBackend.AUTO)
+        result = checker._search_with_cascade("AAA", "BBB", FUTURE, "business")
+        assert result is not None
+        assert result.source == "fast_flights"
+
+    @patch("rtw.scraper.serpapi_flights.search_serpapi", side_effect=Exception("fail"))
+    def test_explicit_serpapi_does_not_fall_back(self, mock_serpapi, tmp_cache):
+        checker = AvailabilityChecker(cache=tmp_cache, backend=SearchBackend.SERPAPI)
+        with pytest.raises(Exception, match="fail"):
+            checker._search_with_cascade("AAA", "BBB", FUTURE, "business")
+
+
+class TestCacheWithSerpAPI:
+    @patch("rtw.scraper.serpapi_flights.serpapi_available", return_value=True)
+    @patch("rtw.scraper.serpapi_flights.search_serpapi")
+    def test_serpapi_result_cached(self, mock_serpapi, mock_avail, tmp_cache):
+        mock_serpapi.return_value = FlightPrice(
+            origin="AAA", dest="BBB", carrier="QR", price_usd=2000,
+            cabin="business", source="serpapi", flight_number="QR 807",
+            duration_minutes=540,
+        )
+        checker = AvailabilityChecker(cache=tmp_cache, backend=SearchBackend.AUTO)
+        cand = _make_candidate(num_segs=1)
+        query = _make_query()
+        checker.check_candidate(cand, query)
+
+        # Second call should use cache
+        mock_serpapi.reset_mock()
+        checker.check_candidate(cand, query)
+        mock_serpapi.assert_not_called()
+
+    def test_old_cache_entry_missing_new_fields(self, tmp_cache):
+        """Old cache entries without source/flight_number/duration_minutes still work."""
+        tmp_cache.set(f"avail_AAA_BBB_{FUTURE.isoformat()}_business", {
+            "status": "available", "price_usd": 500, "carrier": "AA"
+        })
+        checker = AvailabilityChecker(cache=tmp_cache, cabin="business")
+        cand = _make_candidate(num_segs=1)
+        query = _make_query()
+        checker.check_candidate(cand, query)
+        avail = cand.candidate.route_segments[0].availability
+        assert avail.status == AvailabilityStatus.AVAILABLE
+        assert avail.source is None
+        assert avail.flight_number is None
+        assert avail.duration_minutes is None
+
+    @patch("rtw.scraper.serpapi_flights.serpapi_available", return_value=True)
+    @patch("rtw.scraper.serpapi_flights.search_serpapi")
+    def test_cached_serpapi_result_returned_for_any_backend(self, mock_serpapi, mock_avail, tmp_cache):
+        """A cached serpapi result is returned even with a different backend."""
+        tmp_cache.set(f"avail_AAA_BBB_{FUTURE.isoformat()}_business", {
+            "status": "available", "price_usd": 2000, "carrier": "QR",
+            "source": "serpapi", "flight_number": "QR 807", "duration_minutes": 540,
+        })
+        checker = AvailabilityChecker(cache=tmp_cache, cabin="business", backend=SearchBackend.FAST_FLIGHTS)
+        cand = _make_candidate(num_segs=1)
+        query = _make_query()
+        checker.check_candidate(cand, query)
+        avail = cand.candidate.route_segments[0].availability
+        assert avail.source == "serpapi"
+        mock_serpapi.assert_not_called()

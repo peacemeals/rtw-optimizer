@@ -1,104 +1,122 @@
 """Tests for ExpertFlyer scraper module."""
 
-from datetime import date
+import datetime
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from rtw.scraper.expertflyer import ExpertFlyerScraper
+from rtw.scraper.expertflyer import (
+    ExpertFlyerScraper,
+    ScrapeError,
+    SessionExpiredError,
+    parse_availability_html,
+)
 
 
 class TestExpertFlyerScraper:
-    """Test ExpertFlyerScraper graceful degradation."""
+    """Test ExpertFlyerScraper session-based approach."""
 
-    def test_credentials_unavailable_when_keyring_missing(self):
-        """credentials_available() returns False when keyring is not importable."""
+    def test_scraper_init_no_session(self):
         scraper = ExpertFlyerScraper()
-        with patch.dict("sys.modules", {"keyring": None}):
-            # Force re-check by clearing cached credentials
-            scraper._username = None
-            scraper._password = None
-            assert scraper.credentials_available() is False
+        assert scraper._session_path is None
+        assert scraper._query_count == 0
 
-    def test_credentials_unavailable_when_not_configured(self):
-        """credentials_available() returns False when credentials not in keyring."""
+    def test_scraper_init_with_session(self, tmp_path):
+        path = str(tmp_path / "session.json")
+        scraper = ExpertFlyerScraper(session_path=path)
+        assert scraper._session_path == path
+
+    @patch("rtw.scraper.expertflyer._get_credentials", return_value=None)
+    def test_check_availability_no_credentials(self, mock_creds):
+        """Returns None when no credentials configured."""
         scraper = ExpertFlyerScraper()
-        with patch("rtw.scraper.expertflyer.keyring", create=True) as mock_keyring:
-            mock_keyring.get_password.return_value = None
-            scraper._username = None
-            scraper._password = None
+        result = scraper.check_availability(
+            origin="LHR",
+            dest="HKG",
+            date=datetime.date(2026, 3, 10),
+            carrier="CX",
+        )
+        assert result is None
 
-            # Patch the import inside the method
-            import types
-
-            mock_kr = types.ModuleType("keyring")
-            mock_kr.get_password = lambda service, key: None
-
-            with patch.dict("sys.modules", {"keyring": mock_kr}):
-                scraper._username = None
-                scraper._password = None
-                assert scraper.credentials_available() is False
-
-    @pytest.mark.asyncio
-    async def test_check_availability_no_credentials(self):
-        """check_availability returns None when no credentials available."""
+    def test_build_results_url(self):
         scraper = ExpertFlyerScraper()
+        url = scraper._build_results_url(
+            origin="LHR",
+            dest="HKG",
+            date=datetime.date(2026, 3, 10),
+            booking_class="D",
+            carrier="CX",
+        )
+        assert "origin=LHR" in url
+        assert "destination=HKG" in url
+        assert "classFilter=D" in url
+        assert "airLineCodes=CX" in url
+        assert "resultsDisplay=single" in url
+        assert "/air/availability/results" in url
 
-        # Ensure no credentials
-        import types
-
-        mock_kr = types.ModuleType("keyring")
-        mock_kr.get_password = lambda service, key: None
-
-        with patch.dict("sys.modules", {"keyring": mock_kr}):
-            scraper._username = None
-            scraper._password = None
-            result = await scraper.check_availability(
-                origin="LHR",
-                dest="NRT",
-                date=date(2025, 6, 15),
-                carrier="JL",
-                booking_class="D",
-            )
-            assert result is None
-
-    @pytest.mark.asyncio
-    async def test_check_availability_no_playwright(self):
-        """check_availability returns None when Playwright not available."""
+    def test_build_results_url_no_carrier(self):
         scraper = ExpertFlyerScraper()
-        # Set fake credentials
-        scraper._username = "testuser"
-        scraper._password = "testpass"
+        url = scraper._build_results_url(
+            origin="SYD",
+            dest="LAX",
+            date=datetime.date(2026, 5, 1),
+        )
+        assert "airLineCodes=" in url
+        assert "origin=SYD" in url
 
-        with patch("rtw.scraper.BrowserManager") as mock_bm:
-            mock_bm.available.return_value = False
-            result = await scraper.check_availability(
-                origin="LHR",
-                dest="NRT",
-                date=date(2025, 6, 15),
-                carrier="JL",
-            )
-            assert result is None
+    def test_session_expired_error(self):
+        err = SessionExpiredError()
+        assert err.error_type == "SESSION_EXPIRED"
+        assert isinstance(err, ScrapeError)
 
-    def test_scraper_init(self):
-        """ExpertFlyerScraper initializes with no credentials."""
-        scraper = ExpertFlyerScraper()
-        assert scraper._username is None
-        assert scraper._password is None
+    def test_scrape_error(self):
+        err = ScrapeError("timeout", error_type="TIMEOUT")
+        assert err.error_type == "TIMEOUT"
+        assert "timeout" in str(err)
+
+
+class TestParseAvailabilityHtml:
+    """Test the standalone HTML parser."""
+
+    @pytest.fixture
+    def fixture_html(self):
+        path = Path(__file__).parent.parent / "fixtures" / "ef_results_lhr_hkg_d.html"
+        if not path.exists():
+            pytest.skip("ExpertFlyer fixture not found")
+        return path.read_text(encoding="utf-8")
+
+    def test_parse_real_fixture(self, fixture_html):
+        results = parse_availability_html(fixture_html, "D")
+        assert len(results) >= 7
+        # All results should have carrier
+        carriers = [r["carrier"] for r in results if r["carrier"]]
+        assert "CX" in carriers
+
+    def test_d_class_seats(self, fixture_html):
+        results = parse_availability_html(fixture_html, "D")
+        seats = [r["seats"] for r in results if r["seats"] is not None]
+        assert 9 in seats  # CX flights had D9
+        assert 5 in seats  # BA 31 had D5
+
+    def test_empty_html(self):
+        results = parse_availability_html("<html></html>", "D")
+        assert results == []
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_real_availability_check(self):
-        """Integration test: check real ExpertFlyer availability."""
-        scraper = ExpertFlyerScraper()
-        if not scraper.credentials_available():
-            pytest.skip("ExpertFlyer credentials not configured")
+    def test_real_availability_check(self):
+        """Integration test: requires valid ExpertFlyer session."""
+        session_path = Path.home() / ".rtw" / "expertflyer_session.json"
+        if not session_path.exists():
+            pytest.skip("ExpertFlyer session not configured")
 
-        result = await scraper.check_availability(
+        scraper = ExpertFlyerScraper(session_path=str(session_path))
+        result = scraper.check_availability(
             origin="LHR",
-            dest="NRT",
-            date=date(2025, 9, 1),
-            carrier="JL",
+            dest="HKG",
+            date=datetime.date(2026, 3, 15),
+            carrier="CX",
         )
-        # Result may be None (stub) but should not raise
-        assert result is None or isinstance(result, dict)
+        assert result is not None
+        assert result.origin == "LHR"
+        assert result.destination == "HKG"

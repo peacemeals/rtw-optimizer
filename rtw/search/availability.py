@@ -8,6 +8,7 @@ from typing import Callable, Optional
 
 from rtw.models import SegmentType
 from rtw.scraper.cache import ScrapeCache
+from rtw.scraper.google_flights import SearchBackend
 from rtw.search.models import (
     AvailabilityStatus,
     ScoredCandidate,
@@ -23,9 +24,13 @@ ProgressCallback = Callable[[int, int, dict, Optional[SegmentAvailability]], Non
 class AvailabilityChecker:
     """Checks flight availability for candidate itinerary segments."""
 
-    def __init__(self, cache: Optional[ScrapeCache] = None, cabin: str = "business"):
+    def __init__(self, cache: Optional[ScrapeCache] = None, cabin: str = "business",
+                 max_stops: Optional[int] = None,
+                 backend: SearchBackend = SearchBackend.AUTO):
         self._cache = cache or ScrapeCache()
         self._cabin = cabin
+        self._max_stops = max_stops
+        self._backend = backend
 
     def check_candidate(
         self,
@@ -93,42 +98,92 @@ class AvailabilityChecker:
                 price_usd=cached.get("price_usd"),
                 carrier=cached.get("carrier"),
                 date=seg_date,
+                source=cached.get("source"),
+                flight_number=cached.get("flight_number"),
+                duration_minutes=cached.get("duration_minutes"),
             )
 
-        # Try scraper
         if seg_date is None:
             return SegmentAvailability(status=AvailabilityStatus.UNKNOWN)
 
-        try:
-            from rtw.scraper.google_flights import search_fast_flights, search_playwright_sync
+        result = self._search_with_cascade(from_apt, to_apt, seg_date, cabin)
 
-            result = search_fast_flights(from_apt, to_apt, seg_date, cabin)
-            if result is None:
-                result = search_playwright_sync(from_apt, to_apt, seg_date, cabin)
+        if result is not None:
+            avail = SegmentAvailability(
+                status=AvailabilityStatus.AVAILABLE,
+                price_usd=result.price_usd,
+                carrier=result.carrier,
+                date=seg_date,
+                stops=result.stops,
+                source=result.source,
+                flight_number=result.flight_number,
+                duration_minutes=result.duration_minutes,
+            )
+            self._cache.set(cache_key, {
+                "status": avail.status.value,
+                "price_usd": avail.price_usd,
+                "carrier": avail.carrier,
+                "source": avail.source,
+                "flight_number": avail.flight_number,
+                "duration_minutes": avail.duration_minutes,
+            }, ttl_hours=6)
+            return avail
 
-            if result is not None:
-                avail = SegmentAvailability(
-                    status=AvailabilityStatus.AVAILABLE,
-                    price_usd=result.price_usd,
-                    carrier=result.carrier,
-                    date=seg_date,
-                )
-                # Store in cache
-                self._cache.set(cache_key, {
-                    "status": avail.status.value,
-                    "price_usd": avail.price_usd,
-                    "carrier": avail.carrier,
-                }, ttl_hours=6)
-                return avail
-            else:
-                return SegmentAvailability(
-                    status=AvailabilityStatus.UNKNOWN,
-                    date=seg_date,
-                )
+        return SegmentAvailability(status=AvailabilityStatus.UNKNOWN, date=seg_date)
 
-        except Exception as exc:
-            logger.warning("Availability check failed for %s-%s: %s", from_apt, to_apt, exc)
-            return SegmentAvailability(status=AvailabilityStatus.UNKNOWN, date=seg_date)
+    def _search_with_cascade(self, from_apt, to_apt, seg_date, cabin):
+        """Search for flights using configured backend(s)."""
+        backend = self._backend
+
+        if backend == SearchBackend.AUTO:
+            search_fns = self._auto_cascade_fns()
+        elif backend == SearchBackend.SERPAPI:
+            search_fns = [("serpapi", self._try_serpapi)]
+        elif backend == SearchBackend.FAST_FLIGHTS:
+            search_fns = [("fast-flights", self._try_fast_flights)]
+        elif backend == SearchBackend.PLAYWRIGHT:
+            search_fns = [("playwright", self._try_playwright)]
+        else:
+            search_fns = self._auto_cascade_fns()
+
+        for name, fn in search_fns:
+            try:
+                result = fn(from_apt, to_apt, seg_date, cabin)
+                if result is not None:
+                    return result
+            except Exception as exc:
+                if backend != SearchBackend.AUTO:
+                    raise
+                logger.debug("Cascade %s failed for %s-%s: %s", name, from_apt, to_apt, exc)
+
+        return None
+
+    def _auto_cascade_fns(self):
+        """Build cascade function list for AUTO mode."""
+        fns = []
+        from rtw.scraper.serpapi_flights import serpapi_available
+        if serpapi_available():
+            fns.append(("serpapi", self._try_serpapi))
+        fns.append(("fast-flights", self._try_fast_flights))
+        fns.append(("playwright", self._try_playwright))
+        return fns
+
+    def _try_serpapi(self, from_apt, to_apt, seg_date, cabin):
+        from rtw.scraper.serpapi_flights import search_serpapi
+        return search_serpapi(
+            origin=from_apt, dest=to_apt, date=seg_date,
+            cabin=cabin, max_stops=self._max_stops,
+        )
+
+    def _try_fast_flights(self, from_apt, to_apt, seg_date, cabin):
+        from rtw.scraper.google_flights import search_fast_flights
+        return search_fast_flights(from_apt, to_apt, seg_date, cabin)
+
+    def _try_playwright(self, from_apt, to_apt, seg_date, cabin):
+        from rtw.scraper.google_flights import search_playwright_sync
+        return search_playwright_sync(
+            from_apt, to_apt, seg_date, cabin, max_stops=self._max_stops,
+        )
 
     def _assign_dates(
         self,

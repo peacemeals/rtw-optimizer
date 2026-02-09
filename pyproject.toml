@@ -13,6 +13,7 @@ dependencies = [
     "fast-flights>=2.2",
     "playwright>=1.40",
     "keyring>=25.0",
+    "requests>=2.28",
 ]
 
 [project.optional-dependencies]

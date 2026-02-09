@@ -68,6 +68,12 @@ class SegmentAvailability(BaseModel):
     price_usd: Optional[float] = None
     carrier: Optional[str] = None
     date: Optional[datetime.date] = None
+    stops: Optional[int] = None
+    error_reason: Optional[str] = None
+    # New fields (populated when SerpAPI is the source)
+    source: Optional[str] = None
+    flight_number: Optional[str] = None
+    duration_minutes: Optional[int] = None
 
 
 class RouteSegment(BaseModel):
